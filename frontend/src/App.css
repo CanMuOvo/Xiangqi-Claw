@@ -1,0 +1,616 @@
+/* ============ 夜色棋院：页面框架 ============ */
+
+.app {
+  min-height: 100vh;
+  color: var(--ink);
+}
+
+/* ---------- 顶栏 ---------- */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 28px;
+  background: linear-gradient(180deg, rgba(30, 40, 66, 0.6), rgba(10, 13, 22, 0.2));
+  border-bottom: 1px solid transparent;
+  position: relative;
+}
+
+/* 顶栏底部鎏金细线 */
+.app-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(200, 164, 92, 0.55) 18%, rgba(200, 164, 92, 0.55) 82%, transparent);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* 朱砂印章 Logo */
+.brand-seal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  background: linear-gradient(145deg, #e05a50, var(--cinnabar) 70%);
+  border-radius: 10px;
+  color: #fdf3e7;
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 700;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -3px 6px rgba(120, 20, 20, 0.45),
+    0 4px 14px rgba(214, 69, 65, 0.35);
+  text-shadow: 0 1px 2px rgba(90, 10, 10, 0.5);
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.app-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  background: linear-gradient(120deg, var(--gold-3), var(--gold-2) 45%, var(--gold) 75%, var(--gold-3));
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gold-shimmer 9s linear infinite;
+}
+
+@keyframes gold-shimmer {
+  0% { background-position: 120% 0; }
+  100% { background-position: -80% 0; }
+}
+
+.brand-sub {
+  font-size: 10px;
+  letter-spacing: 0.42em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  margin-top: 2px;
+  padding-left: 0.42em; /* 平衡 letter-spacing 尾距 */
+}
+
+/* 顶栏右侧：引擎状态 */
+.header-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.engine-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  font-size: 12px;
+  transition: border-color 0.2s;
+}
+
+.engine-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cinnabar);
+}
+
+.engine-pill.on {
+  border-color: rgba(77, 157, 124, 0.5);
+  color: var(--ink);
+}
+
+.engine-pill.on .engine-dot {
+  background: var(--jade);
+  box-shadow: 0 0 8px rgba(77, 157, 124, 0.8);
+  animation: engine-breathe 2.2s ease-in-out infinite;
+}
+
+@keyframes engine-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* ---------- 主区 ---------- */
+.app-main {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 24px 20px 40px;
+}
+
+/* 大屏适配：内容区与面板列同步加宽，配合棋盘放大消除两侧空白 */
+@media (min-width: 1500px) {
+  .app-main {
+    max-width: 1680px;
+  }
+
+  .play-layout,
+  .review-layout {
+    grid-template-columns: minmax(500px, 1040px) minmax(360px, 460px);
+  }
+
+  .board-editor {
+    grid-template-columns: minmax(500px, 1040px) minmax(320px, 400px);
+  }
+}
+
+@media (min-width: 1920px) {
+  .app-main {
+    max-width: 1960px;
+  }
+
+  .play-layout,
+  .review-layout {
+    grid-template-columns: minmax(600px, 1320px) minmax(380px, 480px);
+  }
+
+  .board-editor {
+    grid-template-columns: minmax(600px, 1320px) minmax(360px, 440px);
+  }
+}
+
+.play-layout,
+.review-layout {
+  display: grid;
+  grid-template-columns: minmax(400px, 620px) minmax(300px, 380px);
+  gap: 22px;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .play-layout,
+  .review-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.board-column {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ---------- 棋盘衬台：棋盘像实物一样置于桌面 ---------- */
+.board-wrap {
+  position: relative;
+  padding: 16px;
+  background:
+    linear-gradient(160deg, rgba(38, 48, 78, 0.55), rgba(14, 18, 30, 0.85) 70%),
+    var(--bg-1);
+  border: 1px solid var(--line-2);
+  border-radius: 18px;
+  box-shadow:
+    var(--shadow-card),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* 衬台顶部鎏金微光 */
+.board-wrap::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 12%;
+  right: 12%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(200, 164, 92, 0.4), transparent);
+}
+
+/* 操作区：位于右侧栏顶部的卡片，按钮自动换行 */
+.board-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: linear-gradient(170deg, rgba(26, 33, 52, 0.9), rgba(16, 21, 34, 0.95));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+
+.toolbar-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.toolbar-group .toolbar-btn {
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
+}
+
+/* 人机对战按钮状态较长，独占一行 */
+.toolbar-group .toolbar-btn.vs {
+  flex-basis: 100%;
+}
+
+/* 玻璃胶囊工具按钮 */
+.toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-2);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.18s;
+  backdrop-filter: blur(6px);
+}
+
+.toolbar-btn:hover {
+  background: rgba(200, 164, 92, 0.1);
+  border-color: rgba(200, 164, 92, 0.55);
+  color: var(--gold-2);
+}
+
+.toolbar-btn.active {
+  background: rgba(200, 164, 92, 0.14);
+  border-color: var(--gold);
+  color: var(--gold-2);
+}
+
+/* 新局：鎏金主操作 */
+.toolbar-btn.primary {
+  background: linear-gradient(135deg, var(--gold-3), var(--gold));
+  border-color: transparent;
+  color: #171207;
+  font-weight: 700;
+}
+
+.toolbar-btn.primary:hover {
+  filter: brightness(1.12);
+  color: #171207;
+  background: linear-gradient(135deg, var(--gold-3), var(--gold));
+}
+
+/* 人机对战：金色描边 + 状态 */
+.toolbar-btn.vs {
+  background: linear-gradient(135deg, rgba(200, 164, 92, 0.14), rgba(200, 164, 92, 0.04));
+  border-color: rgba(200, 164, 92, 0.45);
+  color: var(--ink);
+}
+
+.toolbar-btn.vs:hover {
+  border-color: var(--gold);
+  box-shadow: 0 0 14px rgba(200, 164, 92, 0.18);
+  color: var(--gold-2);
+}
+
+.toolbar-vs-value {
+  color: var(--gold-2);
+  font-size: 12px;
+}
+
+/* ---------- 右侧栏 ---------- */
+.side-column {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* 通用卡片 */
+.analysis-panel,
+.move-history,
+.coach-panel,
+.editor-sidebar,
+.review-input-section,
+.review-results {
+  background: linear-gradient(170deg, rgba(26, 33, 52, 0.9), rgba(16, 21, 34, 0.95));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+
+/* 分节标题：鎏金小标 + 竖线装饰 */
+.analysis-header h3,
+.move-history-header h3,
+.coach-header h3,
+.editor-sidebar h3,
+.review-input-section h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gold-2);
+  letter-spacing: 0.08em;
+  position: relative;
+  padding-left: 12px;
+}
+
+.analysis-header h3::before,
+.move-history-header h3::before,
+.coach-header h3::before,
+.editor-sidebar h3::before,
+.review-input-section h3::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 2px;
+  bottom: 2px;
+  width: 3px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--gold-2), var(--gold-3));
+}
+
+.computer-error {
+  padding: 10px 14px;
+  background: rgba(214, 69, 65, 0.1);
+  border: 1px solid rgba(214, 69, 65, 0.5);
+  border-radius: 9px;
+  color: #f3a6a2;
+  font-size: 14px;
+}
+
+/* 对局信息卡：轮走方 / 回合 / 电脑配置，一眼掌握局面状态 */
+.status-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(170deg, rgba(26, 33, 52, 0.9), rgba(16, 21, 34, 0.95));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  flex-wrap: wrap;
+}
+
+.status-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-label {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.status-side {
+  font-family: var(--serif);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.status-side.red { color: #e8837f; }
+.status-side.black { color: #8fb5e8; }
+
+.status-badge {
+  font-size: 12px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.status-badge.check {
+  background: rgba(214, 69, 65, 0.16);
+  color: #f3a6a2;
+  border: 1px solid rgba(214, 69, 65, 0.45);
+  animation: badge-pulse 1.4s ease-in-out infinite;
+}
+
+.status-badge.mate {
+  background: rgba(200, 164, 92, 0.18);
+  color: var(--gold-2);
+  border: 1px solid rgba(200, 164, 92, 0.55);
+}
+
+@keyframes badge-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.status-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--line);
+}
+
+.status-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.status-value {
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.game-over {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  background: linear-gradient(170deg, rgba(200, 164, 92, 0.14), rgba(200, 164, 92, 0.05));
+  border: 1px solid rgba(200, 164, 92, 0.5);
+  border-radius: var(--radius);
+  font-size: 18px;
+  font-weight: 700;
+  font-family: var(--serif);
+  letter-spacing: 0.1em;
+  color: var(--gold-2);
+}
+
+.game-over button {
+  padding: 8px 20px;
+  background: linear-gradient(135deg, var(--cinnabar), #b03a36);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* ---------- Review tab（保留结构与功能，视觉对齐） ---------- */
+.review-input-section,
+.review-results {
+  padding: 16px;
+}
+
+.review-input-section h3 {
+  margin-bottom: 8px;
+}
+
+.review-hint {
+  color: var(--ink-2);
+  font-size: 13px;
+  margin: 0 0 10px;
+}
+
+.review-textarea {
+  width: 100%;
+  padding: 10px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 13px;
+  font-family: monospace;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.review-textarea:focus {
+  border-color: var(--gold);
+}
+
+.review-btn {
+  margin-top: 10px;
+  width: 100%;
+  padding: 10px;
+  background: linear-gradient(135deg, var(--gold-3), var(--gold));
+  color: #14100a;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.review-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.review-results {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.review-accuracy {
+  display: flex;
+  gap: 20px;
+}
+
+.accuracy-label {
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.accuracy-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--gold-2);
+  font-family: var(--serif);
+}
+
+.review-summary {
+  padding: 12px;
+  background: var(--bg-2);
+  border-radius: 8px;
+}
+
+.review-summary h4 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+.review-summary p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink);
+  white-space: pre-wrap;
+}
+
+.review-moves-quality h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+.review-move-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.review-move-item:hover {
+  background: var(--bg-2);
+}
+
+.review-move-num {
+  width: 28px;
+  color: var(--ink-3);
+  font-size: 13px;
+  text-align: right;
+}
+
+.review-move-uci {
+  font-family: monospace;
+  font-size: 13px;
+  color: var(--ink);
+  width: 50px;
+}
+
+.review-move-quality {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.pvp-select {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  font-size: 13px;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+
+.pvp-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

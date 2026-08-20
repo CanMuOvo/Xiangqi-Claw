@@ -1,0 +1,248 @@
+.board-editor {
+  display: grid;
+  grid-template-columns: minmax(400px, 620px) minmax(280px, 380px);
+  gap: 22px;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .board-editor {
+    grid-template-columns: 1fr;
+  }
+}
+
+.editor-board-area {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 编辑棋盘配色：BoardEditor 不传主题，SVG 默认黑色，这里补齐经典木纹风 */
+.editor-board-area .board-bg {
+  fill: #2f2417;
+  stroke: #57442c;
+  stroke-width: 2;
+}
+
+.editor-board-area .board-surface {
+  fill: #eedcba;
+  stroke: #8b5a2b;
+  stroke-width: 1.5;
+}
+
+.editor-board-area .board-line {
+  stroke: #8b5a2b;
+}
+
+.editor-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  color: var(--ink);
+}
+
+.editor-sidebar h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gold-2);
+  letter-spacing: 0.08em;
+  position: relative;
+  padding-left: 12px;
+}
+
+.editor-sidebar h3::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 2px;
+  bottom: 2px;
+  width: 3px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--gold-2), var(--gold-3));
+}
+
+.editor-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-2);
+  line-height: 1.4;
+}
+
+.piece-picker-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.picker-label {
+  font-size: 13px;
+  color: var(--ink-2);
+  font-weight: 500;
+}
+
+.picker-pieces {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.picker-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+  border: 2px solid transparent;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: var(--bg-2);
+}
+
+.picker-btn.red {
+  color: #991b1b;
+}
+
+.picker-btn.black {
+  color: #1e3a5f;
+}
+
+.picker-btn.erase {
+  font-size: 13px;
+  color: var(--ink-2);
+  width: auto;
+  padding: 0 14px;
+}
+
+.picker-btn:hover {
+  background: var(--bg-3);
+}
+
+.picker-btn.selected {
+  border-color: var(--gold);
+  background: rgba(200, 164, 92, 0.14);
+  box-shadow: 0 0 0 1px var(--gold);
+}
+
+.turn-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.turn-btn {
+  padding: 6px 16px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink-2);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.turn-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.turn-btn.active {
+  background: linear-gradient(135deg, var(--gold-3), var(--gold));
+  border-color: var(--gold);
+  color: #171207;
+  font-weight: 700;
+}
+
+.fen-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fen-label {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.fen-display {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--bg-0);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink-2);
+  font-size: 11px;
+  font-family: monospace;
+  outline: none;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.fen-import-row {
+  display: flex;
+  gap: 6px;
+}
+
+.fen-input {
+  flex: 1;
+  padding: 6px 8px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink);
+  font-size: 12px;
+  font-family: monospace;
+  outline: none;
+}
+
+.fen-input:focus {
+  border-color: var(--gold);
+}
+
+.fen-load-btn {
+  padding: 6px 12px;
+  background: linear-gradient(135deg, var(--gold-3), var(--gold));
+  color: #171207;
+  border: none;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.fen-load-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.editor-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.editor-btn {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+
+.editor-btn:hover {
+  filter: brightness(1.1);
+}
+
+.editor-btn.primary {
+  background: linear-gradient(135deg, #3f9d77, var(--jade));
+  color: white;
+}
+
+.editor-btn.secondary {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}

@@ -1,0 +1,224 @@
+.coach-panel {
+  background: linear-gradient(170deg, rgba(26, 33, 52, 0.9), rgba(16, 21, 34, 0.95));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  color: var(--ink);
+  box-shadow: var(--shadow-card);
+}
+
+.coach-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.coach-header h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gold-2);
+  letter-spacing: 0.08em;
+  position: relative;
+  padding-left: 12px;
+}
+
+.coach-header h3::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 2px;
+  bottom: 2px;
+  width: 3px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--gold-2), var(--gold-3));
+}
+
+.coach-hint {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.coach-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+}
+
+.coach-empty {
+  color: var(--ink-3);
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: center;
+  padding: 12px 8px;
+}
+
+/* 局面变化分隔提示 */
+.coach-divider {
+  text-align: center;
+  font-size: 12px;
+  color: var(--ink-3);
+  padding: 6px 0;
+  margin: 4px 0;
+  border-top: 1px dashed var(--line);
+  border-bottom: 1px dashed var(--line);
+}
+
+.coach-msg {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.coach-msg-label {
+  flex-shrink: 0;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  margin-top: 2px;
+  font-family: var(--serif);
+}
+
+.coach-msg.user .coach-msg-label {
+  background: rgba(200, 164, 92, 0.16);
+  color: var(--gold-2);
+}
+
+.coach-msg.assistant .coach-msg-label {
+  background: rgba(77, 157, 124, 0.16);
+  color: #7fc4a6;
+}
+
+.coach-msg-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.coach-msg-content {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink);
+  padding: 8px 12px;
+  background: var(--bg-2);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  flex: 1;
+}
+
+/* 超长回复折叠：最多显示 6 行，展开按钮查看全文 */
+.coach-msg-content.clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.coach-expand {
+  align-self: flex-start;
+  padding: 2px 8px;
+  background: none;
+  border: none;
+  color: var(--gold-2);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.coach-expand:hover {
+  background: rgba(200, 164, 92, 0.12);
+}
+
+.coach-msg.user .coach-msg-content {
+  background: rgba(200, 164, 92, 0.06);
+}
+
+.coach-typing {
+  color: var(--ink-2);
+}
+
+.coach-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.coach-input {
+  flex: 1;
+  padding: 9px 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--ink);
+  font-size: 14px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+
+.coach-input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(200, 164, 92, 0.12);
+}
+
+.coach-input:disabled {
+  opacity: 0.6;
+}
+
+.coach-send {
+  padding: 9px 18px;
+  background: linear-gradient(135deg, var(--gold-3), var(--gold));
+  color: #171207;
+  border: none;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+
+.coach-send:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+
+.coach-send:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.coach-quick {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.coach-quick-btn {
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-2);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.16s;
+}
+
+.coach-quick-btn:hover:not(:disabled) {
+  background: rgba(200, 164, 92, 0.1);
+  border-color: rgba(200, 164, 92, 0.5);
+  color: var(--gold-2);
+}
+
+.coach-quick-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -1,0 +1,249 @@
+.analysis-panel {
+  background: linear-gradient(170deg, rgba(26, 33, 52, 0.9), rgba(16, 21, 34, 0.95));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  color: var(--ink);
+  min-height: 205px;
+  box-sizing: border-box;
+  transition: min-height 0.2s ease;
+  box-shadow: var(--shadow-card);
+}
+
+/* 关闭时收起为一行标题，不占大块空间 */
+.analysis-panel.collapsed {
+  min-height: auto;
+}
+
+.analysis-panel.collapsed .analysis-header {
+  margin-bottom: 0;
+}
+
+.analysis-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.analysis-header h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gold-2);
+  letter-spacing: 0.08em;
+  position: relative;
+  padding-left: 12px;
+}
+
+.analysis-header h3::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 2px;
+  bottom: 2px;
+  width: 3px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--gold-2), var(--gold-3));
+}
+
+.analysis-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--ink-2);
+  cursor: pointer;
+  user-select: none;
+}
+
+.analysis-toggle input[type="checkbox"] {
+  accent-color: var(--gold);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cinnabar);
+}
+
+.status-dot.connected {
+  background: var(--jade);
+}
+
+.status-dot.pulsing {
+  animation: dot-pulse 1.2s ease-in-out infinite;
+}
+
+.status-dot.disabled {
+  background: var(--ink-3);
+  animation: none;
+}
+
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(77, 157, 124, 0.5); }
+  50% { opacity: 0.5; box-shadow: 0 0 0 4px rgba(77, 157, 124, 0); }
+}
+
+.analysis-status {
+  color: var(--ink-2);
+  font-size: 14px;
+}
+
+.analysis-status.thinking {
+  color: var(--gold-2);
+}
+
+.thinking-dots span {
+  display: inline-block;
+  animation: dot-bounce 1.2s ease-in-out infinite;
+}
+
+.thinking-dots span:nth-child(2) { animation-delay: 0.15s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes dot-bounce {
+  0%, 100% { opacity: 0.25; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-2px); }
+}
+
+.analysis-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: info-fade-in 0.35s ease;
+}
+
+@keyframes info-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.score-display {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.score-value {
+  font-size: 28px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--gold-2);
+  font-family: var(--serif);
+}
+
+.depth-badge {
+  background: var(--bg-3);
+  color: var(--ink-2);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  border: 1px solid var(--line);
+}
+
+.pv-line {
+  font-size: 13px;
+  line-height: 1.4;
+  min-height: 36px;
+}
+
+.pv-label {
+  color: var(--ink-2);
+  margin-right: 6px;
+}
+
+.pv-moves {
+  color: var(--ink);
+  font-family: 'Menlo', 'Consolas', monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+/* 变化线按红黑双方着色，一眼区分是谁在走 */
+.pv-red { color: #e8837f; }
+.pv-black { color: #8fb5e8; }
+
+.engine-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.best-move-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 8px;
+  animation: info-fade-in 0.3s ease;
+}
+
+.best-label {
+  color: var(--ink-2);
+  font-size: 14px;
+}
+
+.best-move {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--gold-2);
+  font-family: var(--serif);
+}
+
+.best-red { color: #e8837f; }
+.best-black { color: #8fb5e8; }
+
+/* ---------- 实时胜率区（并入引擎分析卡片） ---------- */
+.rates-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.winrate {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.winrate-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.winrate-red { color: #e8837f; }
+.winrate-draw { color: var(--ink-2); }
+.winrate-black { color: #8fb5e8; }
+
+.eval-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.eval-red {
+  background: linear-gradient(180deg, #d64541, #b03a36);
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.eval-draw {
+  background: linear-gradient(180deg, #64748b, #475569);
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.eval-black {
+  background: linear-gradient(180deg, #3b6fb8, #2c568f);
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}

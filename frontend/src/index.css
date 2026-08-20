@@ -1,0 +1,63 @@
+/* ============ 设计系统：夜色棋院 ============
+   深邃靛蓝夜色 + 鎏金 + 朱砂 · 东方美学 × 现代数字界面 */
+:root {
+  --bg-0: #0a0d16;
+  --bg-1: #121728;
+  --bg-2: #1a2134;
+  --bg-3: #242e49;
+  --line: #2b3652;
+  --line-2: #3e4c73;
+  --gold: #c8a45c;
+  --gold-2: #e8ca82;
+  --gold-3: #7d6a3f;
+  --cinnabar: #d64541;
+  --jade: #4d9d7c;
+  --ink: #e9edf5;
+  --ink-2: #9aa8c0;
+  --ink-3: #5f6d88;
+  --radius: 14px;
+  --serif: 'Noto Serif SC', 'Songti SC', 'SimSun', 'STSong', serif;
+  --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background:
+    radial-gradient(1100px 520px at 50% -140px, rgba(40, 54, 88, 0.55) 0%, rgba(10, 13, 22, 0) 62%),
+    radial-gradient(900px 500px at 85% 110%, rgba(200, 164, 92, 0.05) 0%, rgba(10, 13, 22, 0) 55%),
+    var(--bg-0);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', 'PingFang SC', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--line-2);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gold-3);
+}

@@ -1,0 +1,16 @@
+__pycache__/
+openai_apikey.txt
+great_router.txt
+.env
+.venv/
+.qwen/
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Pikafish 编译产物（README 指导自行编译：cd Pikafish/src && make build）
+Pikafish/src/*.o
+Pikafish/src/pikafish
+Pikafish/src/.depend
+
+Pikafish/src/*.nnue

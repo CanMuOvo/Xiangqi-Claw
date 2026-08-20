@@ -1,0 +1,187 @@
+.xiangqi-board {
+  width: 100%;
+  max-width: 600px;
+  user-select: none;
+  touch-action: none;
+}
+
+/* 大屏适配：棋盘随视口分级放大（矢量渲染，坐标按比例换算，交互精度不变） */
+@media (min-width: 1500px) {
+  .xiangqi-board {
+    max-width: 820px;
+  }
+}
+
+@media (min-width: 1920px) {
+  .xiangqi-board {
+    max-width: 960px;
+  }
+}
+
+/* 装饰元素不拦截点击，避免挡住走棋目标格 */
+.xiangqi-board line,
+.xiangqi-board .river-text,
+.xiangqi-board .lm-from-dot,
+.xiangqi-board .lm-from-ring,
+.xiangqi-board .lm-to-ring,
+.xiangqi-board .arrow-from-ring,
+.xiangqi-board .target-dot,
+.xiangqi-board .target-capture,
+.xiangqi-board .best-move-arrow {
+  pointer-events: none;
+}
+
+/* 推演编号箭头：橙色，数字圆底，双击回撤 */
+.analysis-arrow {
+  cursor: pointer;
+}
+
+.analysis-num-bg {
+  fill: #059669;
+  opacity: 0.95;
+}
+
+.analysis-num {
+  fill: #ffffff;
+  pointer-events: none;
+}
+
+.piece-group.dragging {
+  filter: drop-shadow(3px 5px 6px rgba(0, 0, 0, 0.5));
+}
+
+.board-bg {
+  stroke-width: 2;
+}
+
+.board-surface {
+  stroke-width: 1.5;
+}
+
+/* 年轮弧线：模拟木纹大纹理（配色由主题内联提供） */
+.wood-ring {
+  stroke-width: 1.5;
+  fill: none;
+  stroke-linecap: round;
+}
+
+.board-line {
+  stroke-width: 1.2;
+}
+
+.river-text {
+  font-size: 22px;
+  font-family: 'KaiTi', 'STKaiti', serif;
+  letter-spacing: 4px;
+  opacity: 0.65;
+}
+
+.piece-bg-red {
+  fill: #fef3c7;
+  stroke: #991b1b;
+  stroke-width: 2;
+  filter: drop-shadow(1px 2px 2px rgba(0, 0, 0, 0.3));
+}
+
+.piece-bg-black {
+  fill: #fef3c7;
+  stroke: #1e3a5f;
+  stroke-width: 2;
+  filter: drop-shadow(1px 2px 2px rgba(0, 0, 0, 0.3));
+}
+
+.piece-inner-ring {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1;
+  opacity: 0.3;
+}
+
+.piece-text-red {
+  fill: #991b1b;
+  font-family: 'KaiTi', 'STKaiti', 'SimSun', serif;
+  pointer-events: none;
+}
+
+.piece-text-black {
+  fill: #1e3a5f;
+  font-family: 'KaiTi', 'STKaiti', 'SimSun', serif;
+  pointer-events: none;
+}
+
+.piece-group {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.piece-group:hover circle:first-child {
+  filter: drop-shadow(2px 3px 4px rgba(0, 0, 0, 0.4));
+}
+
+/* 点选抬起：放大 + 上移 + 阴影加深（伪 3D 立体感） */
+.piece-group.lifted {
+  transform: translateY(-4px) scale(1.08);
+}
+
+.piece-group.lifted circle:first-child {
+  filter: drop-shadow(3px 6px 6px rgba(0, 0, 0, 0.45));
+}
+
+/* 滑动动画中的棋子 */
+.piece-group.anim-piece {
+  filter: drop-shadow(2px 4px 5px rgba(0, 0, 0, 0.4));
+}
+
+/* 天天象棋风格：起子格白点+圆环，落子格白色细光环 */
+.lm-from-dot {
+  fill: #ffffff;
+  opacity: 0.9;
+}
+
+.lm-from-ring {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 1.5;
+  opacity: 0.75;
+}
+
+.lm-to-ring {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 2;
+  opacity: 0.85;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ring-pop 0.18s ease-out;
+}
+
+/* 推荐箭头起点棋子的绿色细环（与落子白环同款样式） */
+.arrow-from-ring {
+  fill: none;
+  stroke: #22c55e;
+  stroke-width: 2;
+  opacity: 0.8;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ring-pop 0.18s ease-out;
+}
+
+@keyframes ring-pop {
+  from { opacity: 0; transform: scale(0.7); }
+  to { opacity: 0.85; transform: scale(1); }
+}
+
+.target-dot {
+  fill: rgba(34, 197, 94, 0.6);
+}
+
+.target-capture {
+  fill: none;
+  stroke: rgba(239, 68, 68, 0.6);
+  stroke-width: 3;
+}
+
+.best-move-arrow line {
+  filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.3));
+}

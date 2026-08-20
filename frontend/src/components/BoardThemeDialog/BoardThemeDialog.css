@@ -1,0 +1,131 @@
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 8, 15, 0.68);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  animation: overlay-in 0.2s ease;
+}
+
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.dialog-card {
+  background: linear-gradient(170deg, rgba(30, 38, 60, 0.98), rgba(14, 18, 30, 0.98));
+  border: 1px solid var(--line-2);
+  border-radius: 16px;
+  padding: 22px;
+  width: min(360px, calc(100vw - 40px));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  animation: card-in 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.dialog-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  font-family: var(--serif);
+  letter-spacing: 0.08em;
+  color: var(--gold-2);
+  position: relative;
+  padding-left: 12px;
+}
+
+.dialog-title::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 3px;
+  bottom: 3px;
+  width: 3px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--gold-2), var(--gold-3));
+}
+
+.theme-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.theme-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.theme-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.theme-option.active {
+  background: rgba(200, 164, 92, 0.12);
+  border-color: var(--gold);
+  box-shadow: 0 0 12px rgba(200, 164, 92, 0.1);
+}
+
+.theme-swatch {
+  width: 48px;
+  height: 36px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  flex-shrink: 0;
+}
+
+.theme-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.theme-name {
+  font-size: 14px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.theme-desc {
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.dialog-btn.cancel {
+  padding: 8px 18px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--ink-2);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.dialog-btn.cancel:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--ink);
+}

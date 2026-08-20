@@ -1,0 +1,27 @@
+.board-effect {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.effect-img {
+  max-width: 32%;
+  max-height: 42%;
+  animation: effect-pop 1.3s ease-out forwards;
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.55));
+}
+
+/* 整体弹入：放大过冲 + 回弹 + 停留 + 淡出 */
+@keyframes effect-pop {
+  0% { opacity: 0; transform: scale(0.4) rotate(-3deg); }
+  14% { opacity: 1; transform: scale(1.12) rotate(1deg); }
+  26% { transform: scale(0.97) rotate(0deg); }
+  36% { transform: scale(1.03); }
+  46% { transform: scale(1); }
+  70% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.04); }
+}
