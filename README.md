@@ -2,7 +2,7 @@
 
 中国象棋智能教学平台 —— 通过 Pikafish 引擎分析和 AI 教练的自然语言解释，帮助你理解每一步棋的好坏，快速提升象棋水平。
 
-![Illustration of Xiangqi-Claw](https://github.com/StevenYuan666/Xiangqi-Claw/blob/main/asset/image.png)
+![主界面](asset/main-ui.png)
 
 ## 功能特性
 
@@ -17,12 +17,10 @@
 - 引擎分析结果以**中文记谱法**展示（非 UCI 格式），方便阅读
 
 ### AI 教练
-- 基于 OpenAI GPT-5.2 的自然语言教学解释
-- 走棋后自动分类：
-  - 🟢 **最佳着法** — 走到了引擎推荐的最佳走法
-  - 🟡 **可以更好** — 走法尚可，但有更优选择
-  - 🔴 **漏招** — 走到了使优势直接变为劣势的着法
-- 点击「教学分析」按钮获取 AI 教练的详细解释，可随时重复请求
+- 基于大模型（DeepSeek）的自然语言教学解释，对话式交互
+- 内置快捷问题：当前谁优势 / 我该怎么走 / 可以绝杀吗（引擎算杀）
+- 引擎验证结果（评分、变化线）+ AI 教练通俗解读
+- 支持多轮对话，换局面自动切换上下文
 - AI 教练始终从棋盘下方玩家的视角进行分析，语气友好，适合初学者
 
 ### 编辑棋局
@@ -44,7 +42,7 @@
 | 前端 | React 19 + TypeScript + Vite |
 | 后端 | Python / FastAPI |
 | 引擎 | Pikafish (UCI 协议) |
-| AI | OpenAI GPT-5.2 (通过自定义 API endpoint) |
+| AI | 大模型接口（默认 DeepSeek，OpenAI 兼容协议） |
 | 实时通信 | WebSocket |
 
 ## 本地部署
@@ -54,7 +52,7 @@
 - **Python 3.9+**
 - **Node.js 18+** 和 npm
 - **C++ 编译器**（用于编译 Pikafish，如 g++ 或 clang++）
-- **OpenAI API Key**（用于 AI 教练功能）
+- **大模型 API Key**（用于 AI 教练功能，如 DeepSeek）
 
 ### 第 1 步：克隆项目
 
@@ -81,8 +79,12 @@ cd ../..
 # 安装 Python 依赖
 pip install -r backend/requirements.txt
 
-# 设置 OpenAI API Key（AI 教练功能必需）
-export OPENAI_API_KEY="your-api-key-here"
+# 设置大模型 API Key（AI 教练功能必需，以 DeepSeek 为例）
+export OPENAI_API_KEY="sk-your-deepseek-key"
+
+# 可选：自定义模型与接口地址（默认即 DeepSeek）
+# export LLM_MODEL="deepseek-chat"
+# export LLM_BASE_URL="https://api.deepseek.com"
 
 # 从项目根目录启动后端服务
 python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
@@ -118,7 +120,7 @@ Xiangqi-Claw/
 │   │   ├── uci.py             # UCI 协议命令
 │   │   └── analysis.py        # 分析结果解析
 │   ├── services/              # 业务逻辑
-│   │   ├── openai_client.py   # OpenAI 客户端配置
+│   │   ├── openai_client.py   # 大模型客户端配置（DeepSeek，OpenAI 兼容）
 │   │   ├── llm.py             # AI 教学解释生成
 │   │   ├── move_parser.py     # 中文记谱法/自然语言解析
 │   │   └── puzzle.py          # 练习题管理
@@ -134,17 +136,19 @@ Xiangqi-Claw/
 │   │   ├── components/        # React 组件
 │   │   │   ├── Board/         # SVG 交互式棋盘
 │   │   │   ├── BoardEditor/   # 棋局编辑器
-│   │   │   ├── AnalysisPanel/ # 引擎分析面板
-│   │   │   ├── ExplainPanel/  # AI 教练解释面板
-│   │   │   ├── MoveInput/     # 文字/语音输入
-│   │   │   └── MoveHistory/   # 走棋记录
+│   │   │   ├── AnalysisPanel/ # 引擎分析 + 实时胜率面板
+│   │   │   ├── CoachPanel/    # AI 教练对话面板
+│   │   │   ├── MoveHistory/   # 走棋记录
+│   │   │   ├── VsComputerDialog/ # 人机对战设置
+│   │   │   ├── BoardThemeDialog/ # 棋盘样式
+│   │   │   └── BoardEffect/   # 吃子/将军/绝杀特效
 │   │   ├── hooks/             # React Hooks
 │   │   │   ├── useGame.ts     # 游戏状态管理
-│   │   │   ├── useEngine.ts   # WebSocket 引擎通信
-│   │   │   └── useVoice.ts    # 语音识别
+│   │   │   └── useEngine.ts   # WebSocket 引擎通信
 │   │   └── lib/               # 核心库
 │   │       ├── xiangqi.ts     # 象棋规则引擎
 │   │       ├── fen.ts         # FEN 解析/生成
+│   │       ├── boardThemes.ts # 棋盘主题
 │   │       └── notation.ts    # 中文记谱法转换
 │   └── package.json
 └── README.md
@@ -165,7 +169,9 @@ Xiangqi-Claw/
 
 | 环境变量 | 说明 | 默认值 |
 |---------|------|--------|
-| `OPENAI_API_KEY` | OpenAI API 密钥 | 无（AI 教练功能必需） |
+| `OPENAI_API_KEY` | 大模型 API Key（DeepSeek 等，OpenAI 兼容） | 无（AI 教练功能必需） |
+| `LLM_MODEL` | 大模型名称 | `deepseek-chat` |
+| `LLM_BASE_URL` | 大模型接口地址 | `https://api.deepseek.com` |
 | `PIKAFISH_PATH` | Pikafish 二进制路径 | `Pikafish/src/pikafish` |
 
 ## 许可证
