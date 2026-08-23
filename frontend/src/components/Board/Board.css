@@ -112,20 +112,56 @@
 .piece-group {
   transform-box: fill-box;
   transform-origin: center;
-  transition: transform 0.15s ease, filter 0.15s ease;
+  transition: transform 0.18s cubic-bezier(0.34, 1.3, 0.64, 1), filter 0.18s ease;
 }
 
-.piece-group:hover circle:first-child {
+.piece-group:hover circle.piece-bg-red,
+.piece-group:hover circle.piece-bg-black {
   filter: drop-shadow(2px 3px 4px rgba(0, 0, 0, 0.4));
 }
 
-/* 点选抬起：放大 + 上移 + 阴影加深（伪 3D 立体感） */
+/* 点选抬起：上移 + 放大（弹性）+ 深阴影，伪 3D 立体感 */
 .piece-group.lifted {
-  transform: translateY(-4px) scale(1.08);
+  transform: translateY(-7px) scale(1.1);
 }
 
-.piece-group.lifted circle:first-child {
-  filter: drop-shadow(3px 6px 6px rgba(0, 0, 0, 0.45));
+.piece-group.lifted circle.piece-bg-red,
+.piece-group.lifted circle.piece-bg-black {
+  filter: drop-shadow(4px 8px 8px rgba(0, 0, 0, 0.5));
+}
+
+/* 抬起时脚下的椭圆投影：影子变小变淡（像棋子真的被拿起来了） */
+.piece-shadow {
+  fill: rgba(0, 0, 0, 0.32);
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scaleY(1);
+  transition: transform 0.2s ease, fill 0.2s ease;
+}
+
+/* 走棋动画落点：动画期间静止棋子隐藏（防止落点闪现） */
+.piece-group.hide {
+  opacity: 0;
+}
+
+.piece-group.lifted .piece-shadow {
+  transform: scaleY(0.45);
+  fill: rgba(0, 0, 0, 0.16);
+}
+
+/* 选中棋子金色呼吸光环 */
+.piece-glow-ring {
+  fill: none;
+  stroke: rgba(232, 202, 130, 0.9);
+  stroke-width: 2.5;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: glow-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.9; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(1.05); }
 }
 
 /* 滑动动画中的棋子 */
@@ -182,6 +218,29 @@
   stroke-width: 3;
 }
 
+/* 推荐走法箭头：渐变绿 + 柔光 + 出现时生长动画 */
+.best-move-arrow {
+  pointer-events: none;
+}
+
 .best-move-arrow line {
-  filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.3));
+  stroke-dasharray: 800;
+  stroke-dashoffset: 800;
+  animation: arrow-draw 0.4s ease-out forwards;
+}
+
+.best-move-arrow polygon {
+  fill: url(#bm-arrow-grad);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: arrow-head-pop 0.3s 0.15s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+@keyframes arrow-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes arrow-head-pop {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
 }

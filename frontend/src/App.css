@@ -214,11 +214,34 @@
   background: linear-gradient(90deg, transparent, rgba(200, 164, 92, 0.4), transparent);
 }
 
-/* 操作区：位于右侧栏顶部的卡片，按钮自动换行 */
-.board-toolbar {
+/* 沙盘模式：黑调滤镜（整体压暗 + 四周黑色内阴影），提示当前处于推演状态 */
+.board-wrap {
+  transition: filter 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.board-wrap.sandbox-on {
+  border-color: rgba(0, 0, 0, 0.55);
+  filter: brightness(0.82);
+  box-shadow:
+    var(--shadow-card),
+    inset 0 0 55px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.board-wrap.sandbox-on::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  background: linear-gradient(160deg, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.04));
+  pointer-events: none;
+}
+
+/* 对战卡：状态行 + 人机对战设置 + 操作按钮，合成右侧栏顶部一张卡 */
+.vs-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   padding: 12px;
   background: linear-gradient(170deg, rgba(26, 33, 52, 0.9), rgba(16, 21, 34, 0.95));
   border: 1px solid var(--line);
@@ -226,22 +249,49 @@
   box-shadow: var(--shadow-card);
 }
 
-.toolbar-group {
+/* 状态行：轮走方 + 回合，两端分布 */
+.vs-status {
   display: flex;
-  gap: 8px;
   align-items: center;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.toolbar-group .toolbar-btn {
-  flex: 1;
+/* 操作按钮：3 列网格，等宽紧凑 */
+.vs-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.vs-actions .toolbar-btn {
   justify-content: center;
   min-width: 0;
+  padding: 8px 4px;
+  white-space: nowrap;
 }
 
-/* 人机对战按钮状态较长，独占一行 */
-.toolbar-group .toolbar-btn.vs {
-  flex-basis: 100%;
+/* 人机对战按钮：全宽独立一行，主标题 + 当前设置副信息 */
+.toolbar-btn.vs-row {
+  width: 100%;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(200, 164, 92, 0.12), rgba(200, 164, 92, 0.04));
+  border-color: rgba(200, 164, 92, 0.4);
+}
+
+.toolbar-btn.vs-row .vs-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gold-2);
+}
+
+.toolbar-btn.vs-row .vs-sub {
+  font-size: 12px;
+  color: var(--ink-2);
+  opacity: 0.85;
 }
 
 /* 玻璃胶囊工具按钮 */
@@ -272,6 +322,119 @@
   color: var(--gold-2);
 }
 
+.toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 沙盘按钮激活态 */
+.toolbar-btn.sandbox.active {
+  background: linear-gradient(135deg, rgba(77, 157, 124, 0.2), rgba(77, 157, 124, 0.06));
+  border-color: var(--jade);
+  color: #7fc4a6;
+}
+
+/* 沙盘控制条 */
+.sandbox-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: linear-gradient(160deg, rgba(26, 33, 52, 0.92), rgba(16, 21, 34, 0.96));
+  border: 1px solid rgba(77, 157, 124, 0.45);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.sandbox-title {
+  font-family: var(--serif);
+  font-size: 15px;
+  font-weight: 700;
+  color: #7fc4a6;
+  letter-spacing: 0.06em;
+}
+
+.sandbox-hint {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.sandbox-hint.demoing {
+  color: #7fc4a6;
+  font-weight: 600;
+  animation: badge-pulse 1.2s ease-in-out infinite;
+}
+
+.sandbox-actions {
+  flex: 1;
+  display: flex;
+  gap: 8px;
+}
+
+.sandbox-actions .sandbox-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.sandbox-title,
+.sandbox-hint {
+  flex-shrink: 0;
+}
+
+.sandbox-btn {
+  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sandbox-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--line-2);
+}
+
+.sandbox-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.sandbox-btn.exit {
+  background: rgba(214, 69, 65, 0.14);
+  border-color: rgba(214, 69, 65, 0.5);
+  color: #f3a6a2;
+  font-weight: 600;
+}
+
+.sandbox-btn.exit:hover {
+  background: rgba(214, 69, 65, 0.24);
+}
+
+/* 自动推演按钮：翡翠色，推演中点亮 */
+.sandbox-btn.autoplay {
+  background: rgba(77, 157, 124, 0.14);
+  border-color: rgba(77, 157, 124, 0.45);
+  color: #7fc4a6;
+  font-weight: 600;
+}
+
+.sandbox-btn.autoplay:hover {
+  background: rgba(77, 157, 124, 0.24);
+}
+
+.sandbox-btn.autoplay.on {
+  background: rgba(77, 157, 124, 0.26);
+  border-color: var(--jade);
+  animation: badge-pulse 1.2s ease-in-out infinite;
+}
+
 /* 新局：鎏金主操作 */
 .toolbar-btn.primary {
   background: linear-gradient(135deg, var(--gold-3), var(--gold));
@@ -286,22 +449,11 @@
   background: linear-gradient(135deg, var(--gold-3), var(--gold));
 }
 
-/* 人机对战：金色描边 + 状态 */
-.toolbar-btn.vs {
-  background: linear-gradient(135deg, rgba(200, 164, 92, 0.14), rgba(200, 164, 92, 0.04));
-  border-color: rgba(200, 164, 92, 0.45);
-  color: var(--ink);
-}
-
-.toolbar-btn.vs:hover {
+/* 人机对战全宽按钮 hover：金色描边 + 柔光 */
+.toolbar-btn.vs-row:hover {
   border-color: var(--gold);
   box-shadow: 0 0 14px rgba(200, 164, 92, 0.18);
-  color: var(--gold-2);
-}
-
-.toolbar-vs-value {
-  color: var(--gold-2);
-  font-size: 12px;
+  background: rgba(200, 164, 92, 0.16);
 }
 
 /* ---------- 右侧栏 ---------- */
@@ -363,46 +515,93 @@
   font-size: 14px;
 }
 
-/* 对局信息卡：轮走方 / 回合 / 电脑配置，一眼掌握局面状态 */
-.status-card {
+/* 状态行底部鎏金分隔线 */
+.vs-status {
+  position: relative;
+  padding-bottom: 10px;
+}
+
+.vs-status::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(200, 164, 92, 0.35), transparent);
+}
+
+.turn-indicator {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  background: linear-gradient(170deg, rgba(26, 33, 52, 0.9), rgba(16, 21, 34, 0.95));
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-card);
-  flex-wrap: wrap;
+  gap: 7px;
+  min-width: 0;
 }
 
-.status-main {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+/* 轮走方圆点：呼吸光晕，像"活"的一样 */
+.turn-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
-.status-label {
-  font-size: 12px;
-  color: var(--ink-3);
+.turn-dot.red {
+  background: linear-gradient(145deg, #e05a50, #b03a36);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15);
+  animation: turn-breathe-red 1.6s ease-in-out infinite;
 }
 
-.status-side {
+.turn-dot.black {
+  background: linear-gradient(145deg, #5a6478, #3a3f4b);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+  animation: turn-breathe-black 1.6s ease-in-out infinite;
+}
+
+@keyframes turn-breathe-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(214, 69, 65, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.15); }
+  50% { box-shadow: 0 0 0 6px rgba(214, 69, 65, 0), 0 0 0 1px rgba(255, 255, 255, 0.15); }
+}
+
+@keyframes turn-breathe-black {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(90, 100, 120, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.12); }
+  50% { box-shadow: 0 0 0 6px rgba(90, 100, 120, 0), 0 0 0 1px rgba(255, 255, 255, 0.12); }
+}
+
+.turn-text {
   font-family: var(--serif);
   font-size: 15px;
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
-.status-side.red { color: #e8837f; }
-.status-side.black { color: #8fb5e8; }
+.turn-text.red { color: #e8837f; }
+.turn-text.black { color: #8fb5e8; }
 
+/* 回合徽章 */
+.round-badge {
+  margin-left: auto;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(200, 164, 92, 0.1);
+  border: 1px solid rgba(200, 164, 92, 0.4);
+  color: var(--gold-2);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* 将军/绝杀徽标 */
 .status-badge {
   font-size: 12px;
   padding: 2px 9px;
   border-radius: 999px;
   font-weight: 700;
   letter-spacing: 0.05em;
+  white-space: nowrap;
 }
 
 .status-badge.check {
@@ -421,23 +620,6 @@
 @keyframes badge-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
-}
-
-.status-divider {
-  width: 1px;
-  height: 18px;
-  background: var(--line);
-}
-
-.status-item {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.status-value {
-  font-size: 13px;
-  color: var(--ink);
 }
 
 .game-over {
@@ -464,6 +646,53 @@
   border-radius: 8px;
   font-size: 14px;
   cursor: pointer;
+}
+
+/* 走棋提醒提示：覆盖在棋盘中央（楚河汉界），像印章落下，不挡交互 */
+.move-check-toast {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  background: rgba(14, 18, 30, 0.88);
+  border: 1px solid rgba(232, 202, 130, 0.65);
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--gold-2);
+  white-space: nowrap;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+  animation: toast-stamp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes toast-stamp {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@media (max-width: 960px) {
+  .move-check-toast {
+    padding: 9px 16px;
+    font-size: 13px;
+  }
+}
+
+/* 走棋提醒开关激活态：金色呼吸脉冲提示已开启 */
+.toolbar-btn.move-check.active {
+  animation: move-check-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes move-check-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(232, 202, 130, 0.35); }
+  50% { box-shadow: 0 0 0 5px rgba(232, 202, 130, 0); }
 }
 
 /* ---------- Review tab（保留结构与功能，视觉对齐） ---------- */
@@ -613,4 +842,205 @@
 .pvp-select:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ============ 移动端：全屏棋盘 + 底部四列 Tab ============ */
+.app-main.mobile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px 6px 88px; /* 底部留出 Tab 栏空间 */
+  max-width: 100%;
+}
+
+.app-main.mobile .board-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 棋盘上方信息条：轮走/回合 + 实时胜率 */
+.mobile-topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(170deg, rgba(26, 33, 52, 0.9), rgba(16, 21, 34, 0.95));
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.mobile-winrate {
+  margin-left: auto;
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.mobile-winrate .winrate.compact {
+  flex: 1;
+  max-width: 200px;
+}
+
+.mobile-winrate-empty {
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+/* 移动端棋盘最大化：收窄衬台内边距 */
+.app-main.mobile .board-wrap {
+  padding: 8px;
+  border-radius: 12px;
+}
+
+.app-main.mobile .board-wrap.sandbox-on::after {
+  border-radius: 12px;
+}
+
+/* Tab 内容面板：最小高度防止切换时空面板导致布局塌陷 */
+.mobile-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 300px;
+}
+
+/* 底部 Tab 栏：吸底玻璃条 */
+.mobile-tabs {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  background: rgba(18, 23, 39, 0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--line-2);
+  border-radius: 14px;
+  padding: 6px;
+  gap: 4px;
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.35);
+  z-index: 20;
+}
+
+.mobile-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 0 6px;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  color: var(--ink-3);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.mobile-tab-icon {
+  font-size: 17px;
+  line-height: 1;
+}
+
+.mobile-tab.active {
+  background: linear-gradient(135deg, rgba(200, 164, 92, 0.18), rgba(200, 164, 92, 0.06));
+  color: var(--gold-2);
+  font-weight: 600;
+}
+
+/* 移动端顶栏紧凑 */
+@media (max-width: 960px) {
+  /* 棋盘占满容器宽度 */
+  .xiangqi-board {
+    max-width: 100%;
+  }
+
+  .app-header {
+    padding: 10px 14px;
+  }
+
+  .brand-seal {
+    width: 42px;
+    height: 42px;
+    font-size: 24px;
+  }
+
+  .app-title {
+    font-size: 23px;
+    letter-spacing: 0.14em;
+  }
+
+  .brand-sub {
+    display: none;
+  }
+
+  .engine-pill {
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+
+  /* 移动端按钮/信息文字更大气 */
+  .app-main.mobile .toolbar-btn {
+    font-size: 14px;
+    padding: 10px 8px;
+  }
+
+  .app-main.mobile .turn-text {
+    font-size: 17px;
+  }
+
+  .app-main.mobile .round-badge {
+    font-size: 13px;
+    padding: 4px 12px;
+  }
+
+  .app-main.mobile .mobile-topbar {
+    padding: 10px 14px;
+  }
+
+  /* 菜单里不再显示对局状态行：棋盘上方信息条已含轮走/回合 */
+  .app-main.mobile .vs-status {
+    display: none;
+  }
+
+  /* 手机端沙盘条：紧凑横排，隐藏提示文案 */
+  .app-main.mobile .sandbox-bar {
+    flex-wrap: nowrap;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .app-main.mobile .sandbox-hint {
+    display: none;
+  }
+
+  .app-main.mobile .sandbox-actions {
+    gap: 6px;
+  }
+
+  .app-main.mobile .sandbox-btn {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  /* 手机端沙盘条：标题省略「推演」、步进按钮只留箭头，保证单行不折字 */
+  .app-main.mobile .sandbox-title-sub,
+  .app-main.mobile .sb-step-label {
+    display: none;
+  }
+
+  .app-main.mobile .mobile-tab {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 0 8px;
+  }
+
+  .app-main.mobile .mobile-tab-icon {
+    font-size: 21px;
+  }
+
+  /* 移动端走棋记录限高收窄 */
+  .app-main.mobile .move-list {
+    max-height: 240px;
+  }
 }

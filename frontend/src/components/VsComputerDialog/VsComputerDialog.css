@@ -20,7 +20,7 @@
   border: 1px solid var(--line-2);
   border-radius: 16px;
   padding: 22px;
-  width: min(380px, calc(100vw - 40px));
+  width: min(400px, calc(100vw - 40px));
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -33,18 +33,68 @@
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.dialog-title {
+/* ---------- 头部：对战标识 ---------- */
+.vs-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 2px;
+}
+
+.vs-head-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  font-size: 20px;
+  background: linear-gradient(145deg, rgba(200, 164, 92, 0.25), rgba(200, 164, 92, 0.08));
+  border: 1px solid rgba(200, 164, 92, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.vs-head-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.vs-head-text .dialog-title {
   margin: 0;
   font-size: 18px;
   font-weight: 700;
   font-family: var(--serif);
   letter-spacing: 0.08em;
   color: var(--gold-2);
-  position: relative;
-  padding-left: 12px;
 }
 
-.dialog-title::before {
+.vs-head-sub {
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+}
+
+/* ---------- 分节 ---------- */
+.vs-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.vs-label {
+  font-size: 13px;
+  color: var(--ink-2);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  position: relative;
+  padding-left: 10px;
+}
+
+.vs-label::before {
   content: '';
   position: absolute;
   left: 0;
@@ -55,31 +105,18 @@
   background: linear-gradient(180deg, var(--gold-2), var(--gold-3));
 }
 
-.dialog-desc {
-  margin: 0;
-  font-size: 13px;
-  color: var(--ink-2);
-  line-height: 1.6;
-}
-
-.dialog-field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.dialog-field-label {
-  font-size: 13px;
-  color: var(--ink-2);
-}
-
-.diff-options {
-  display: flex;
+/* ---------- 难度网格 ---------- */
+.diff-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
 }
 
 .diff-option {
-  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
   padding: 8px 0;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--line);
@@ -91,58 +128,184 @@
   transition: all 0.15s;
 }
 
+.diff-name {
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.diff-depth {
+  font-size: 10px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
 .diff-option:hover {
   background: rgba(255, 255, 255, 0.08);
+  border-color: var(--line-2);
 }
 
 .diff-option.active {
-  background: rgba(200, 164, 92, 0.14);
+  background: linear-gradient(135deg, rgba(200, 164, 92, 0.2), rgba(200, 164, 92, 0.08));
   border-color: var(--gold);
   color: var(--gold-2);
   font-weight: 600;
-  box-shadow: 0 0 12px rgba(200, 164, 92, 0.12);
+  box-shadow: 0 0 12px rgba(200, 164, 92, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
-.side-options {
+.diff-option.active .diff-depth {
+  color: rgba(232, 202, 130, 0.75);
+}
+
+/* 深度思考：全宽独立按钮 */
+.diff-option.custom {
+  width: 100%;
+  padding: 9px 0;
+}
+
+/* 选中档位的深度说明行 */
+.diff-hint {
+  font-size: 12px;
+  color: var(--gold-2);
+  padding: 7px 12px;
+  background: rgba(200, 164, 92, 0.08);
+  border: 1px dashed rgba(200, 164, 92, 0.35);
+  border-radius: 8px;
+  animation: card-in 0.2s ease;
+}
+
+/* ---------- 深度滑条 ---------- */
+.depth-row {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  animation: card-in 0.2s ease;
+}
+
+.depth-value {
+  font-size: 12px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.depth-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--gold-3), var(--gold-2));
+  outline: none;
+  cursor: pointer;
+}
+
+.depth-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #fff, #e8ca82);
+  border: 2px solid var(--gold);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+}
+
+.depth-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #fff, #e8ca82);
+  border: 2px solid var(--gold);
+  cursor: pointer;
+}
+
+.depth-num {
+  min-width: 26px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: var(--serif);
+  color: var(--gold-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 执方卡片 ---------- */
+.side-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
 
-.side-option {
-  padding: 10px 14px;
+.side-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--line);
-  border-radius: 9px;
-  color: var(--ink);
-  font-size: 14px;
-  text-align: left;
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.15s;
 }
 
-.side-option:hover {
+.side-card:hover {
   background: rgba(255, 255, 255, 0.08);
+  border-color: var(--line-2);
 }
 
-.side-option.active {
-  background: rgba(200, 164, 92, 0.14);
+.side-card.active {
+  background: linear-gradient(135deg, rgba(200, 164, 92, 0.18), rgba(200, 164, 92, 0.06));
   border-color: var(--gold);
+  box-shadow: 0 0 12px rgba(200, 164, 92, 0.12);
+}
+
+.side-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.side-card-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.side-card-title {
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.side-card.active .side-card-title {
   color: var(--gold-2);
   font-weight: 600;
 }
 
+.side-card-sub {
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+/* ---------- 底部 ---------- */
 .dialog-hint {
   margin: 0;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--ink-3);
+  line-height: 1.5;
 }
 
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .dialog-btn {
@@ -151,7 +314,7 @@
   border-radius: 9px;
   font-size: 14px;
   cursor: pointer;
-  transition: filter 0.15s;
+  transition: filter 0.15s, background 0.15s;
 }
 
 .dialog-btn:hover {
@@ -168,4 +331,9 @@
   background: linear-gradient(135deg, var(--gold-3), var(--gold));
   color: #171207;
   font-weight: 700;
+  box-shadow: 0 4px 14px rgba(200, 164, 92, 0.25);
+}
+
+.dialog-btn.confirm:hover {
+  box-shadow: 0 4px 20px rgba(200, 164, 92, 0.4);
 }

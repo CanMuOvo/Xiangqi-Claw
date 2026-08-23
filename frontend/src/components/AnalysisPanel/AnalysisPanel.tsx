@@ -1,11 +1,12 @@
-import type { EngineInfo, EngineResult, ShallowScore } from '../../hooks/useEngine';
+import type { EngineInfo } from '../../hooks/useEngine';
 import { uciToChineseNotation } from '../../lib/notation';
 import { parseFen, applyMove, toFen, uciToSquare } from '../../lib/fen';
+import { terminalRates, winRates } from '../../lib/winrate';
+import { WinRateBar } from '../WinRateBar';
 import './AnalysisPanel.css';
 
 interface Props {
   info: EngineInfo | null;
-  result: EngineResult | null;
   analysing: boolean;
   connected: boolean;
   fen: string;
@@ -14,22 +15,18 @@ interface Props {
   enabled: boolean;
   onToggleEnabled: (v: boolean) => void;
   /** 实时胜率：浅层独立数据源 */
-  shallow: ShallowScore | null;
+  shallow: import('../../hooks/useEngine').ShallowScore | null;
+  /** Top N 候选线（0 = 最佳） */
+  lines: import('../../hooks/useEngine').EngineInfo[];
   ratesEnabled: boolean;
   onToggleRates: (v: boolean) => void;
 }
 
-function formatScore(cp: number, mate: number | null): string {
-  if (mate !== null) {
-    return mate > 0 ? `杀棋 ${mate} 步` : `被杀 ${Math.abs(mate)} 步`;
-  }
-  const pawns = (cp / 100).toFixed(1);
-  return cp >= 0 ? `+${pawns}` : `${pawns}`;
-}
+const RANK_BADGES = ['①', '②', '③'];
 
-function formatNodes(n: number): string {
+function formatCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return String(n);
 }
 
@@ -54,93 +51,34 @@ function pvToChineseSequence(pv: string[], startFen: string, maxMoves: number): 
   return moves.join(' ');
 }
 
-/* ---------- 实时胜率（原 WinRatePanel 逻辑迁移） ---------- */
-
-// 终局胜率：绝杀 = 对应方 100%，和棋 = 100% 和（不依赖引擎，即时显示）
-function terminalRates(gameOver: string): { red: number; draw: number; black: number } | null {
-  if (gameOver.includes('红方胜')) return { red: 100, draw: 0, black: 0 };
-  if (gameOver.includes('黑方胜')) return { red: 0, draw: 0, black: 100 };
-  if (gameOver.includes('和')) return { red: 0, draw: 100, black: 0 };
-  return null;
-}
-
-// lichess 标准 sigmoid：引擎分数 → 单方胜率（业界通用做法）
-function winPercent(cp: number): number {
-  return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
-}
-
-// 用浅层分数（depth <=6，未收敛到残局"例和"）计算三方胜率：
-// 胜/负用 sigmoid，和棋用钟形（均势最高、随优势增大递减），归一化
-function winRates(s: ShallowScore | null): { red: number; draw: number; black: number } | null {
-  if (!s || !s.fen) return null;
-  const turn = s.fen.split(' ')[1];
-  let sideWin: number;
-  let sideDraw: number;
-  if (s.mate !== null) {
-    sideWin = s.mate > 0 ? 100 : 0;
-    sideDraw = 0;
-  } else {
-    sideWin = winPercent(s.cp);
-    sideDraw = 50 / (1 + Math.pow(s.cp / 250, 2));
+function lineScore(line: import('../../hooks/useEngine').EngineInfo): string {
+  if (line.score_mate !== null) {
+    return line.score_mate > 0 ? `杀${line.score_mate}` : `被杀${Math.abs(line.score_mate)}`;
   }
-  const sideLoss = 100 - sideWin;
-  const total = sideWin + sideDraw + sideLoss;
-  const w = sideWin / total * 100;
-  const d = sideDraw / total * 100;
-  const l = sideLoss / total * 100;
-  const red = turn === 'w' ? w : l;
-  const black = turn === 'w' ? l : w;
-  return { red, draw: d, black };
+  return `${line.score_cp >= 0 ? '+' : ''}${(line.score_cp / 100).toFixed(1)}`;
 }
 
-function WinRateBar({ red, draw, black }: { red: number; draw: number; black: number }) {
-  const total = red + draw + black;
-  if (total === 0) return null;
-  const redPct = red.toFixed(1);
-  const drawPct = draw.toFixed(1);
-  const blackPct = black.toFixed(1);
-  return (
-    <div className="winrate">
-      <div className="winrate-labels">
-        <span className="winrate-red">红方 {redPct}%</span>
-        <span className="winrate-draw">和 {drawPct}%</span>
-        <span className="winrate-black">黑方 {blackPct}%</span>
-      </div>
-      <div className="eval-bar">
-        <div className="eval-red" style={{ width: `${redPct}%` }} />
-        <div className="eval-draw" style={{ width: `${drawPct}%` }} />
-        <div className="eval-black" style={{ width: `${blackPct}%` }} />
-      </div>
-    </div>
-  );
-}
+export default function AnalysisPanel({ info, lines, analysing, connected, fen, computerTurn, gameOver, enabled, onToggleEnabled, shallow, ratesEnabled, onToggleRates }: Props) {
+  // Top 候选线：优先当前局面的数据，无则用最近一次（stale 降透明度）
+  const currentLines = lines.length > 0 ? lines.filter((l) => l.fen === fen) : [];
+  const displayLines = currentLines.length > 0 ? currentLines : lines;
+  const stale = displayLines.length > 0 && currentLines.length === 0;
 
-export default function AnalysisPanel({ info, result, analysing, connected, fen, computerTurn, gameOver, enabled, onToggleEnabled, shallow, ratesEnabled, onToggleRates }: Props) {
-  // 只显示与分析请求局面（fen）一致的数据，避免棋盘已变时挂着旧局面的分析
-  const infoCurrent = !!info && info.fen === fen;
-  const resultCurrent = !!result && result.fen === fen;
+  const bestLine = displayLines[0] ?? info;
+  const startTurn = bestLine?.fen ? bestLine.fen.split(' ')[1] : 'w';
 
-  const bestMoveCn = resultCurrent
-    ? (result?.best_move_cn
-        ?? (result?.best_move && /^[a-i][0-9][a-i][0-9]$/.test(result.best_move)
-          ? uciToChineseNotation(result.best_move, result.fen || fen)
-          : null))
-    : null;
-
-  const pvList: string[] = infoCurrent
-    ? (info?.pv_cn && info.pv_cn.length > 0
-        ? info.pv_cn
-        : (info?.pv ? pvToChineseSequence(info.pv, info.fen || fen, 6).split(' ') : []))
-    : [];
   // 变化线第一步的走棋方（决定红黑着色顺序）
-  const startTurn = infoCurrent && info.fen ? info.fen.split(' ')[1] : 'w';
+  const pvList: string[] = bestLine
+    ? (bestLine.pv_cn && bestLine.pv_cn.length > 0
+        ? bestLine.pv_cn
+        : (bestLine.pv ? pvToChineseSequence(bestLine.pv, bestLine.fen || fen, 6).split(' ') : []))
+    : [];
 
-  // 实时胜率：终局直接用结果；对局中只显示与当前局面一致的胜率
+  // 实时胜率：有浅层数据就持续展示（新数据到达后条宽平滑过渡），过期的降透明度
   const rates = gameOver
     ? terminalRates(gameOver)
-    : shallow && shallow.fen === fen
-      ? winRates(shallow)
-      : null;
+    : winRates(shallow);
+  const ratesStale = !gameOver && !!shallow && shallow.fen !== fen;
 
   return (
     <div className={`analysis-panel${enabled ? '' : ' collapsed'}`}>
@@ -173,23 +111,28 @@ export default function AnalysisPanel({ info, result, analysing, connected, fen,
         <p className="analysis-status">对局结束</p>
       )}
 
-      {enabled && !gameOver && computerTurn && connected && (
-        <p className="analysis-status">电脑走棋中，暂不分析</p>
-      )}
-
-      {enabled && !gameOver && !computerTurn && analysing && !info && (
-        <p className="analysis-status thinking">
-          分析中<span className="thinking-dots"><span>.</span><span>.</span><span>.</span></span>
+      {enabled && !gameOver && !bestLine && (
+        <p className="analysis-status">
+          {computerTurn ? '电脑走棋中，暂不分析' : analysing ? (
+            <>分析中<span className="thinking-dots"><span>.</span><span>.</span><span>.</span></span></>
+          ) : '等待分析'}
         </p>
       )}
 
-      {enabled && !gameOver && !computerTurn && infoCurrent && (
-        <div key={info.fen} className="analysis-info">
-          <div className="score-display">
-            <span className="score-value">
-              {formatScore(info.score_cp, info.score_mate)}
-            </span>
-            <span className="depth-badge">深度 {info.depth}</span>
+      {enabled && !gameOver && bestLine && (
+        <div className={`analysis-info${stale ? ' stale' : ''}`}>
+          <div className="top-lines">
+            {displayLines.slice(0, 3).map((line, i) => (
+              <div key={i} className={`top-line${i === 0 ? ' best' : ''}`}>
+                <span className="rank-badge">{RANK_BADGES[i]}</span>
+                <span className={`tl-move ${startTurn === 'w' ? 'tl-red' : 'tl-black'}`}>
+                  {line.pv_cn?.[0]
+                    ?? (line.pv?.[0] ? uciToChineseNotation(line.pv[0], line.fen || fen) : '—')}
+                </span>
+                <span className="tl-score">{lineScore(line)}</span>
+                <span className="tl-depth">深度 {line.depth}</span>
+              </div>
+            ))}
           </div>
 
           {pvList.length > 0 && (
@@ -199,7 +142,7 @@ export default function AnalysisPanel({ info, result, analysing, connected, fen,
                 {pvList.map((m, i) => {
                   const red = startTurn === 'w' ? i % 2 === 0 : i % 2 === 1;
                   return (
-                    <span key={i} className={red ? 'pv-red' : 'pv-black'}>{m} </span>
+                    <span key={`${bestLine.fen}-${i}`} className={red ? 'pv-red' : 'pv-black'}>{m} </span>
                   );
                 })}
               </span>
@@ -207,24 +150,15 @@ export default function AnalysisPanel({ info, result, analysing, connected, fen,
           )}
 
           <div className="engine-stats">
-            <span>节点: {formatNodes(info.nodes)}</span>
-            <span>速度: {formatNodes(info.nps)}/s</span>
+            <span>节点 <span key={bestLine.nodes} className="stat-num">{formatCount(bestLine.nodes)}</span></span>
+            <span>速度 <span key={bestLine.nps} className="stat-num">{formatCount(bestLine.nps)}/s</span></span>
           </div>
         </div>
       )}
 
-      {enabled && !gameOver && !computerTurn && resultCurrent && !analysing && bestMoveCn && (
-        <div className="best-move-display">
-          <span className="best-label">最佳着法:</span>
-          <span className={`best-move ${startTurn === 'w' ? 'best-red' : 'best-black'}`}>
-            {bestMoveCn}
-          </span>
-        </div>
-      )}
-
-      {/* 实时胜率区 */}
+      {/* 实时胜率区：旧数据持续展示，新数据到达后平滑过渡 */}
       {ratesEnabled && (
-        <div className="rates-section">
+        <div className={`rates-section${ratesStale ? ' stale' : ''}`}>
           {!rates && connected && (
             <p className="analysis-status">局势分析中…</p>
           )}

@@ -1,6 +1,37 @@
 import type { MoveRecord } from '../../hooks/useGame';
 import { uciToChineseNotation } from '../../lib/notation';
+import { parseFen, applyMove, uciToSquare } from '../../lib/fen';
+import { isInCheck, isCheckmate } from '../../lib/xiangqi';
 import './MoveHistory.css';
+
+/** 单步战术标记：吃子（具体子名）/ 将军 / 绝杀 */
+interface MoveFlags {
+  captured: string | null;
+  check: boolean;
+  mate: boolean;
+}
+
+const PIECE_CN: Record<string, string> = {
+  r: '车', n: '马', b: '象', a: '士', k: '将', c: '炮', p: '卒',
+  R: '车', N: '马', B: '相', A: '仕', K: '帅', C: '炮', P: '兵',
+};
+
+function analyzeMove(prevFen: string, uci: string): MoveFlags {
+  try {
+    const pos = parseFen(prevFen);
+    const from = uciToSquare(uci.slice(0, 2));
+    const to = uciToSquare(uci.slice(2, 4));
+    const target = pos.board[to.row][to.col];
+    const next = applyMove(pos, from, to);
+    return {
+      captured: target ? PIECE_CN[target] ?? target : null,
+      check: next ? isInCheck(next) : false,
+      mate: next ? isCheckmate(next) : false,
+    };
+  } catch {
+    return { captured: null, check: false, mate: false };
+  }
+}
 
 interface Props {
   moves: MoveRecord[];
@@ -10,6 +41,8 @@ interface Props {
   /** 人机对战：上一步/下一步按整回合步进（撤掉我的棋 + 电脑应手） */
   stepByTurn?: boolean;
   humanIsRed?: boolean;
+  /** 禁用交互（如沙盘演示中，避免点击干扰自动推演） */
+  disabled?: boolean;
 }
 
 /** 第 index 手之后的局面是否轮到人类走棋（index=-1 为开局） */
@@ -30,7 +63,7 @@ function snapToHumanTurn(index: number, humanIsRed: boolean, maxIndex: number): 
   return index;
 }
 
-export default function MoveHistory({ moves, currentIndex, startFen, onGoTo, stepByTurn = false, humanIsRed = true }: Props) {
+export default function MoveHistory({ moves, currentIndex, startFen, onGoTo, stepByTurn = false, humanIsRed = true, disabled = false }: Props) {
   const pairs: { index: number; red: MoveRecord; black?: MoveRecord }[] = [];
 
   for (let i = 0; i < moves.length; i += 2) {
@@ -53,6 +86,7 @@ export default function MoveHistory({ moves, currentIndex, startFen, onGoTo, ste
           className="nav-btn"
           onClick={() => onGoTo(-1)}
           title="回到开局"
+          disabled={disabled}
         >
           ⏮
         </button>
@@ -70,7 +104,7 @@ export default function MoveHistory({ moves, currentIndex, startFen, onGoTo, ste
               onGoTo(target);
             }
           }}
-          disabled={currentIndex < 0}
+          disabled={disabled || currentIndex < 0}
           title="上一步"
         >
           ◀
@@ -89,7 +123,7 @@ export default function MoveHistory({ moves, currentIndex, startFen, onGoTo, ste
               onGoTo(target);
             }
           }}
-          disabled={currentIndex >= moves.length - 1}
+          disabled={disabled || currentIndex >= moves.length - 1}
           title="下一步"
         >
           ▶
@@ -98,12 +132,13 @@ export default function MoveHistory({ moves, currentIndex, startFen, onGoTo, ste
           className="nav-btn"
           onClick={() => onGoTo(moves.length - 1)}
           title="最新"
+          disabled={disabled}
         >
           ⏭
         </button>
       </div>
 
-      <div className="move-list">
+      <div className={`move-list${disabled ? ' disabled' : ''}`}>
         {pairs.length === 0 && (
           <p className="no-moves">尚未走棋</p>
         )}
@@ -111,17 +146,19 @@ export default function MoveHistory({ moves, currentIndex, startFen, onGoTo, ste
           <div key={index} className="move-pair">
             <span className="move-number">{Math.floor(index / 2) + 1}.</span>
             <span
-              className={`move-item red-move ${currentIndex === index ? 'active' : ''}`}
-              onClick={() => onGoTo(index)}
+              className={`move-item red-move ${currentIndex === index ? 'active' : ''}${disabled ? ' off' : ''}`}
+              onClick={() => !disabled && onGoTo(index)}
             >
               {uciToChineseNotation(red.uci, getFenBefore(index))}
+              <MoveFlags marks={analyzeMove(getFenBefore(index), red.uci)} />
             </span>
             {black && (
               <span
-                className={`move-item black-move ${currentIndex === index + 1 ? 'active' : ''}`}
-                onClick={() => onGoTo(index + 1)}
+                className={`move-item black-move ${currentIndex === index + 1 ? 'active' : ''}${disabled ? ' off' : ''}`}
+                onClick={() => !disabled && onGoTo(index + 1)}
               >
                 {uciToChineseNotation(black.uci, getFenBefore(index + 1))}
+                <MoveFlags marks={analyzeMove(getFenBefore(index + 1), black.uci)} />
               </span>
             )}
           </div>
@@ -129,4 +166,12 @@ export default function MoveHistory({ moves, currentIndex, startFen, onGoTo, ste
       </div>
     </div>
   );
+}
+
+/** 战术标记渲染：绝杀 / 将军 / 吃子（显示子名） */
+function MoveFlags({ marks }: { marks: MoveFlags }) {
+  if (marks.mate) return <span className="mv-flag mate">绝杀</span>;
+  if (marks.check) return <span className="mv-flag check">将军</span>;
+  if (marks.captured) return <span className="mv-flag cap">吃{marks.captured}</span>;
+  return null;
 }

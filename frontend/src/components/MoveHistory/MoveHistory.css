@@ -72,6 +72,12 @@
   flex-direction: column;
 }
 
+/* 禁用态（沙盘演示中）：不可点击 */
+.move-list.disabled .move-item {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .no-moves {
   color: var(--ink-3);
   font-size: 14px;
@@ -104,7 +110,7 @@
   font-size: 14px;
   cursor: pointer;
   transition: background 0.15s;
-  text-align: center;
+  text-align: left;
   white-space: nowrap;
 }
 
@@ -120,3 +126,16 @@
 
 .red-move { color: #e8837f; }
 .black-move { color: #8fb5e8; }
+
+/* 战术标记：绝杀 # / 将军 + / 吃子（显示子名） */
+.mv-flag {
+  margin-left: 2px;
+  font-weight: 700;
+  font-style: normal;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.mv-flag.cap { color: var(--gold-2); }
+.mv-flag.check { color: #f3a6a2; }
+.mv-flag.mate { color: #f3a6a2; }

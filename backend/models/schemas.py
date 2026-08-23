@@ -38,6 +38,7 @@ class PVLine(BaseModel):
     pv: list[str]
     nodes: int = 0
     nps: int = 0
+    multipv: int = 1
 
 
 class AnalysisResult(BaseModel):
@@ -46,6 +47,8 @@ class AnalysisResult(BaseModel):
     ponder: Optional[str] = None
     lines: list[PVLine] = Field(default_factory=list)
     depth: int = 0
+    # 分支推演：预设走法序列（从 fen 局面开始依次走完，引擎从序列结束后的局面继续搜索）
+    preset_moves: list[str] = Field(default_factory=list)
 
 
 class ExplanationRequest(BaseModel):
@@ -88,6 +91,8 @@ class CoachRequest(BaseModel):
 
 class CoachResponse(BaseModel):
     reply: str
+    # 沙盘演示：可逐步走出的走法序列（UCI），前端可一键进入沙盘自动演示
+    sandbox_moves: list[str] = Field(default_factory=list)
 
 
 class PuzzleOut(BaseModel):

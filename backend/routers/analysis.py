@@ -15,12 +15,17 @@ from backend.models.schemas import (AnalysisRequest, AnalysisResult,
                                     ExplanationRequest, ExplanationResponse,
                                     PVLine)
 from backend.services.llm import (
-    explain_engine_verdict,
     extract_move_candidates,
     generate_coach_reply,
     generate_explanation,
 )
-from backend.services.move_parser import parse_standard_notation
+from backend.services.move_parser import (
+    apply_uci_to_fen,
+    extract_move_sequence,
+    is_check_after_move,
+    parse_standard_notation,
+    uci_captures,
+)
 from backend.services.openai_client import get_openai_client
 from backend.services.notation import apply_uci, pv_to_chinese, uci_to_chinese
 
@@ -40,14 +45,15 @@ def judge_score_loss(loss: int) -> str:
 
 
 async def _analyse_best(fen: str):
-    """分析当前局面，返回 (最佳走法, 最佳分数, 最佳变化线中文)。"""
+    """分析当前局面，返回 (最佳走法中文, 最佳分数, 最佳变化线中文, 最佳走法 UCI, 变化线 UCI 列表)。"""
     engine = await get_engine()
     cur = await engine.analyse(fen, depth=14, multipv=1)
     best_move = cur.best_move
     best_score = cur.lines[0].score_cp if cur.lines else 0
     best_cn = uci_to_chinese(best_move, fen) if best_move else ""
-    best_pv = " ".join(pv_to_chinese(cur.lines[0].pv, fen)) if cur.lines and cur.lines[0].pv else ""
-    return best_cn, best_score, best_pv
+    pv_uci = cur.lines[0].pv if cur.lines and cur.lines[0].pv else []
+    best_pv = " ".join(pv_to_chinese(pv_uci, fen)) if pv_uci else ""
+    return best_cn, best_score, best_pv, best_move, pv_uci
 
 
 async def _check_mate(fen: str, depth: int = 18):
@@ -64,6 +70,61 @@ async def _check_mate(fen: str, depth: int = 18):
     return line.score_mate, best_cn, pv_cn, True
 
 
+def _annotate_move(fen: str, uci: str) -> str:
+    """走法中文 + 战术标注（吃子/将军）。"""
+    cn = uci_to_chinese(uci, fen) or uci
+    tags: list[str] = []
+    captured = uci_captures(fen, uci)
+    if captured:
+        tags.append(f"吃{captured}")
+    if is_check_after_move(fen, uci):
+        tags.append("将军")
+    return f"{cn}（{' · '.join(tags)}）" if tags else cn
+
+
+def _trim_demo_moves(moves: list[str], max_len: int = 7) -> list[str]:
+    """沙盘演示序列截断：与回复展示的推演步数一致（首步 + 后续 6 步）。"""
+    return moves[:max_len]
+
+
+async def build_branch_reply(engine, fen: str, moves: list[str], result) -> str:
+    """分支推演回复：预设走法序列（含吃子/将军标注）+ 引擎从该局面继续推演的结果。
+
+    序列与后续的标注全部基于引擎真实局面（d 命令逐步获取），
+    避免自推进与引擎处理不一致导致吃子/将军漏标。
+    """
+    # 序列标注：每步用引擎真实局面（d 命令）检测吃子/将军
+    cn_list: list[str] = []
+    cur = fen
+    for i, uci in enumerate(moves):
+        cn_list.append(_annotate_move(cur, uci))
+        cur = await engine.fen_after_moves(fen, moves[: i + 1])
+
+    # 用引擎真实局面作为后续推演的基准
+    real_cur = cur
+
+    best_cn = _annotate_move(real_cur, result.best_move) if result.best_move and result.best_move != "(none)" else ""
+    # 后续变化（从真实分支局面开始）：先应用首步（对方最佳应对），再标注后续，避免局面偏移
+    pv_cn_list: list[str] = []
+    pv = result.lines[0].pv[:6] if result.lines and result.lines[0].pv else []
+    pcur = real_cur
+    if pv:
+        pcur = apply_uci_to_fen(pcur, pv[0])
+    for u in pv[1:]:
+        pv_cn_list.append(_annotate_move(pcur, u))
+        pcur = apply_uci_to_fen(pcur, u)
+
+    lines = [
+        f"【分支推演】按你假设的走法：{' → '.join(cn_list)}",
+        "",
+        f"引擎从该局面继续推演（深度 {result.depth}）：",
+        f"对方最佳应对：{best_cn or '分析中'}",
+    ]
+    if pv_cn_list:
+        lines.append(f"后续变化：{' '.join(pv_cn_list)}")
+    return "\n".join(lines)
+
+
 async def _analyse_after_move(fen: str, uci: str) -> Optional[int]:
     """走一步 UCI 后分析新局面，返回走棋方视角分数；非法走法返回 None。"""
     new_fen = apply_uci(fen, uci)
@@ -76,8 +137,10 @@ async def _analyse_after_move(fen: str, uci: str) -> Optional[int]:
 
 
 async def verify_move_with_engine(fen: str, uci: str, question: str = "") -> Optional[str]:
-    """引擎验证单个具体走法：分数对比 + 走法后的真实推演变化线 + 担心的子力追踪。"""
-    best_cn, best_score, best_pv = await _analyse_best(fen)
+    """引擎验证单个具体走法：分数对比 + 走法后的真实推演变化线 + 担心的子力追踪。
+
+    返回 (回复, 沙盘演示序列)。"""
+    best_cn, best_score, best_pv, _, _ = await _analyse_best(fen)
     new_fen = apply_uci(fen, uci)
     if not new_fen:
         return None
@@ -94,12 +157,18 @@ async def verify_move_with_engine(fen: str, uci: str, question: str = "") -> Opt
     )
     loss = max(0, best_score - user_score)
     reply = (
-        f"【引擎验证】你提到「{user_cn}」：这步走后走棋方约 {user_score:+d} 分，"
-        f"最佳着法「{best_cn or '未知'}」走后约 {best_score:+d} 分，"
-        f"差距 {loss} 分，判定：{judge_score_loss(loss)}。"
+        f"【走法评估】你走「{user_cn}」约 {user_score:+d} 分，"
+        f"最佳「{best_cn or '未知'}」约 {best_score:+d} 分，"
+        f"差距 {loss}（{judge_score_loss(loss)}）。"
     )
-    if user_pv:
-        reply += f"\n【引擎推演后续】{user_cn} {user_pv}"
+    # 走法后的真实推演（每步带吃子/将军标注，红黑交替）
+    if after.lines and after.lines[0].pv:
+        pv_cn_list: list[str] = []
+        pcur = new_fen
+        for u in after.lines[0].pv[:6]:
+            pv_cn_list.append(_annotate_move(pcur, u))
+            pcur = apply_uci_to_fen(pcur, u)
+        reply += f"\n【后续推演】{' '.join(pv_cn_list)}"
     # 子力追踪：学生担心某子被吃时，引擎沿推演数棋子确定吃没吃
     if question:
         worried_char, worried_cn = _extract_worried_piece(question)
@@ -109,13 +178,15 @@ async def verify_move_with_engine(fen: str, uci: str, question: str = "") -> Opt
                 fen, [uci] + after.lines[0].pv, worried_char, is_red
             )
             reply += f"\n【子力追踪】你担心的{worried_cn}：{survival}。"
-    reply += f"\n最佳变化线：{best_pv or '暂无'}。"
-    return reply
+    demo = [uci]
+    if after.lines and after.lines[0].pv:
+        demo += after.lines[0].pv
+    return reply, _trim_demo_moves(demo)
 
 
 async def verify_moves_with_engine(fen: str, cn_moves: list[str]) -> Optional[str]:
     """引擎验证 LLM 生成的多个候选走法，返回汇总回答；全部验证失败返回 None。"""
-    best_cn, best_score, best_pv = await _analyse_best(fen)
+    best_cn, best_score, best_pv, _, _ = await _analyse_best(fen)
     details: list[str] = []
     for cn in cn_moves:
         uci = parse_standard_notation(cn, fen)
@@ -132,10 +203,9 @@ async def verify_moves_with_engine(fen: str, cn_moves: list[str]) -> Optional[st
     if not details:
         return None
     return (
-        "【引擎验证】你的想法，我理解为以下候选走法：\n"
+        "【走法评估】你的想法，我理解为以下候选走法：\n"
         + "\n".join(details)
         + (f"\n建议：当前最佳着法是「{best_cn}」，比上面这些选择更稳妥。" if best_cn else "")
-        + f"\n最佳变化线：{best_pv or '暂无'}。"
     )
 
 
@@ -174,9 +244,14 @@ def _track_piece_survival(fen: str, pv: list[str], piece_char: str, is_red: bool
 
 
 def build_quick_reply(
-    fen: str, question: str, score: int, best_cn: str, best_pv: str
+    fen: str, question: str, score: int, best_cn: str, best_pv: str,
+    best_uci: str = "", pv_uci: list[str] | None = None,
 ) -> str:
-    """快捷问题（谁优势/怎么走/局面评估）：基于引擎分析结果生成模板回答。"""
+    """快捷问题（谁优势/怎么走/局面评估）：评估 + 推荐走法（含吃子/将军战术标注）。
+
+    不重复引擎变化线（分析面板已有），聚焦走棋之外的战术信息；
+    后续推演每步带吃子/将军标注（基于 pv UCI 序列推进）。
+    """
     turn = fen.split()[1]
     # 优势方：score 是走棋方视角（正=走棋方优）
     side = "红方" if (score > 0 and turn == "w") or (score <= 0 and turn == "b") else "黑方"
@@ -190,28 +265,33 @@ def build_quick_reply(
     else:
         desc = f"{side}大幅领先（{abs_score} 分）"
 
-    # 最佳走法属于轮到走的一方
-    best_side = "红方" if turn == "w" else "黑方"
+    # 战术标注：吃子 / 将军（引擎面板没有的"棋局意外"信息）
+    tactics: list[str] = []
+    if best_uci and best_uci != "(none)":
+        captured = uci_captures(fen, best_uci)
+        if captured:
+            tactics.append(f"吃{captured}")
+        if is_check_after_move(fen, best_uci):
+            tactics.append("将军")
+    badge = f"（{' · '.join(tactics)}）" if tactics else ""
+
     if "怎么走" in question:
-        return (
-            f"引擎建议走（{best_side}）：{best_cn or '分析中'}。后续变化：{best_pv or '分析中'}。"
-            f"这是当前局面的最优选择，按这条线走可保持主动。"
-        )
+        # 后续推演：跳过首步（首步即推荐走法），最多 6 步，每步带吃子/将军标注
+        pv_rest_cn: list[str] = []
+        pcur = fen
+        if pv_uci:
+            pcur = apply_uci_to_fen(pcur, pv_uci[0])  # 应用首步，后续标注基于正确局面
+            for u in pv_uci[1:7]:
+                pv_rest_cn.append(_annotate_move(pcur, u))
+                pcur = apply_uci_to_fen(pcur, u)
+        reply = f"【推荐走法】{best_cn or '分析中'}{badge}"
+        if pv_rest_cn:
+            reply += f"\n【后续推演】{' '.join(pv_rest_cn)}"
+        return reply
     return (
-        f"引擎评估：{desc}。最佳走法（{best_side}）：{best_cn or '分析中'}。"
-        f"后续变化：{best_pv or '分析中'}。"
+        f"【局面评估】{desc}。\n"
+        f"【推荐走法】{best_cn or '分析中'}{badge}"
     )
-
-
-async def _with_verdict_explanation(
-    question: str, verdict: str, history_cn: str, fen: str, client
-) -> CoachResponse:
-    """引擎验证结果 + LLM 解读（带棋盘子力信息）；解读失败时回落纯数据回答。"""
-    try:
-        explained = await explain_engine_verdict(question, verdict, history_cn, fen, client)
-        return CoachResponse(reply=f"{verdict}\n\n【教练解读】{explained}")
-    except Exception:
-        return CoachResponse(reply=verdict)
 
 
 @router.post("/api/analysis", response_model=AnalysisResult)
@@ -248,71 +328,90 @@ async def coach(req: CoachRequest):
         raise HTTPException(status_code=400, detail="未配置 OpenAI API Key")
     client = get_openai_client()
 
-    # 快捷问题（谁优势/怎么走/局面评估）：后端实时引擎分析 + 模板回答，不依赖前端缓存
-    if any(k in req.question for k in ("优势", "怎么走", "局面", "形势", "谁优", "哪边好")):
+    # ---- 意图分流 ----
+    # 优先识别问题中的具体走法（中文记谱序列）：有走法意图的先做验证/推演，
+    # 避免被"怎么走/谁优势"等关键词误判为快捷问题
+    branch_moves = extract_move_sequence(req.question, req.fen)
+
+    # ① 分支推演：≥2 步连续走法（如「我炮二平五，黑马8进7，然后呢」）
+    if len(branch_moves) >= 2:
         try:
-            best_cn, best_score, best_pv = await _analyse_best(req.fen)
-            return CoachResponse(
-                reply=build_quick_reply(req.fen, req.question, best_score, best_cn, best_pv)
+            engine = await get_engine()
+            branch_result = await engine.analyse(
+                req.fen, depth=16, multipv=1, moves=branch_moves
             )
+            if branch_result.best_move and branch_result.best_move != "(none)":
+                # 演示序列：预设走法 + 引擎后续变化（完整可逐步演示）
+                demo = branch_moves
+                if branch_result.lines and branch_result.lines[0].pv:
+                    demo = branch_moves + branch_result.lines[0].pv
+                return CoachResponse(
+                    reply=await build_branch_reply(engine, req.fen, branch_moves, branch_result),
+                    sandbox_moves=_trim_demo_moves(demo),
+                )
         except Exception:
             pass
 
-    # 杀棋检测问题（绝杀/有杀/能杀/将死等）：引擎算杀，不走候选走法流程
+    # ② 单走法验证：恰好 1 步（如「我走车一进二，这步怎么样」）
+    if len(branch_moves) == 1:
+        try:
+            res = await verify_move_with_engine(req.fen, branch_moves[0], req.question)
+            if res:
+                reply, demo = res
+                return CoachResponse(reply=reply, sandbox_moves=demo)
+        except Exception:
+            pass
+
+    # ③ 算杀检测（绝杀/有杀/能杀/将死等）
     if any(k in req.question for k in ("绝杀", "杀棋", "有杀", "能杀", "杀法", "连杀", "将死", "必杀", "无解", "算杀")):
         try:
             mate, best_cn, pv_cn, has_legal = await _check_mate(req.fen)
             turn = "红方" if req.fen.split()[1] == "w" else "黑方"
             if not has_legal:
-                # 引擎无变化线输出 → 当前走棋方无合法着法（已被将死/困毙），对局已结束
-                reply = f"【引擎算杀】当前局面 {turn} 已经无棋可走（被将死或困毙），对局已结束。"
+                reply = f"【算杀】当前局面 {turn} 已经无棋可走（被将死或困毙），对局已结束。"
             elif mate is not None and mate > 0:
                 reply = (
-                    f"【引擎算杀】当前局面 {turn} 有杀！引擎找到强制连杀（mate {mate}）。\n"
+                    f"【算杀】当前局面 {turn} 有杀！引擎找到强制连杀（mate {mate}）。\n"
                     f"杀法路线：{pv_cn if pv_cn else best_cn or '分析中'}。"
                 )
             elif mate is not None and mate < 0:
                 reply = (
-                    f"【引擎算杀】当前局面 {turn} 已无解：对方存在强制杀棋（mate {-mate}）。\n"
+                    f"【算杀】当前局面 {turn} 已无解：对方存在强制杀棋（mate {-mate}）。\n"
                     f"最佳应对：{pv_cn if pv_cn else best_cn or '分析中'}。"
                 )
             else:
                 reply = (
-                    f"【引擎算杀】当前局面暂无直接杀棋（引擎深度 18 未发现强制连杀）。\n"
+                    f"【算杀】当前局面暂无直接杀棋（引擎深度 18 未发现强制连杀）。\n"
                     f"当前最佳着法：{best_cn or '分析中'}。"
                 )
             return CoachResponse(reply=reply)
         except Exception:
             pass
 
-    # 第一层：规则解析成功（标准记谱，如「马七进八」）→ 单走法引擎验证 + LLM 解读（带棋盘子力）
-    uci = parse_standard_notation(req.question, req.fen)
-    if uci:
+    # ④ 快捷问题（谁优势/怎么走/局面评估，无具体走法时）
+    if any(k in req.question for k in ("优势", "怎么走", "局面", "形势", "谁优", "哪边好")):
         try:
-            reply = await verify_move_with_engine(req.fen, uci, req.question)
-            if reply:
-                return await _with_verdict_explanation(
-                    req.question, reply, req.history_cn, req.fen, client
-                )
-        except Exception:
-            pass
-    else:
-        # 第二层：规则失败 → LLM 生成候选走法 → 引擎逐个验证 + LLM 解读
-        try:
-            cn_moves = await extract_move_candidates(req.question, req.fen, client)
-            if cn_moves:
-                reply = await verify_moves_with_engine(req.fen, cn_moves)
-                if reply:
-                    return await _with_verdict_explanation(
-                        req.question, reply, req.history_cn, req.fen, client
-                    )
+            best_cn, best_score, best_pv, best_uci, pv_uci = await _analyse_best(req.fen)
+            return CoachResponse(
+                reply=build_quick_reply(req.fen, req.question, best_score, best_cn, best_pv, best_uci, pv_uci),
+                sandbox_moves=_trim_demo_moves(pv_uci) if pv_uci else [],
+            )
         except Exception:
             pass
 
-    # 第三层：最终回落 → LLM 直接回答（被引擎数据约束）
-    # 先强制用后端引擎刷新当前局面的数据，防止前端关闭分析面板导致旧数据
+    # ⑤ 无标准记谱但表达了走法意图 → LLM 提取候选走法 → 引擎逐个验证
     try:
-        best_cn, best_score, best_pv = await _analyse_best(req.fen)
+        cn_moves = await extract_move_candidates(req.question, req.fen, client)
+        if cn_moves:
+            reply = await verify_moves_with_engine(req.fen, cn_moves)
+            if reply:
+                return CoachResponse(reply=reply)
+    except Exception:
+        pass
+
+    # ⑥ 最终回落 → LLM 直接回答（被引擎数据约束）
+    try:
+        best_cn, best_score, best_pv, _, _ = await _analyse_best(req.fen)
         req.engine_score_cp = best_score
         req.engine_best_move_cn = best_cn
         req.engine_pv_cn = best_pv.split(" ") if best_pv else []
@@ -345,12 +444,15 @@ async def ws_analysis(websocket: WebSocket):
             msg = json.loads(data)
             fen = msg.get("fen", "")
             depth = msg.get("depth", 18)
+            multipv = msg.get("multipv", 3)
 
-            async for item in engine.analyse_stream(fen, depth=depth):
+            sent_best = False
+            async for item in engine.analyse_stream(fen, depth=depth, multipv=multipv):
                 if isinstance(item, PVLine):
                     await websocket.send_json({
                         "type": "info",
                         "fen": fen,
+                        "multipv": 1 if item.multipv is None else item.multipv,
                         "depth": item.depth,
                         "score_cp": item.score_cp,
                         "score_mate": item.score_mate,
@@ -361,6 +463,7 @@ async def ws_analysis(websocket: WebSocket):
                         "nps": item.nps,
                     })
                 elif isinstance(item, AnalysisResult):
+                    sent_best = True
                     await websocket.send_json({
                         "type": "bestmove",
                         "fen": fen,
@@ -377,5 +480,8 @@ async def ws_analysis(websocket: WebSocket):
                             for l in item.lines
                         ],
                     })
+            # 分析被 REST（电脑走棋）打断：通知前端停止"分析中"状态
+            if not sent_best:
+                await websocket.send_json({"type": "stopped", "fen": fen})
     except WebSocketDisconnect:
         pass

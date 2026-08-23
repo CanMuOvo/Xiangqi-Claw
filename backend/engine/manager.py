@@ -38,6 +38,8 @@ class EngineManager:
         self._path = path
         self._proc: Optional[asyncio.subprocess.Process] = None
         self._lock = asyncio.Lock()
+        # REST 分析（电脑走棋）请求到达时置位，让正在跑的 WS 分析让出引擎锁
+        self._ws_interrupt = asyncio.Event()
         self._ready = False
 
     async def start(self) -> None:
@@ -82,30 +84,45 @@ class EngineManager:
         """
         await self._send(uci.cmd_stop())
         await self._send(uci.cmd_isready())
-        await self._read_until("readyok")
+        try:
+            await self._read_until("readyok")
+        except asyncio.TimeoutError:
+            # 引擎对 stop/isready 也无响应：强制重启，避免后续调用连环卡死
+            logger.warning("engine unresponsive to isready, force restarting")
+            await self._restart()
 
     async def analyse(
-        self, fen: str, depth: int = 20, multipv: int = 1
+        self, fen: str, depth: int = 20, multipv: int = 1, moves: Optional[list[str]] = None
     ) -> AnalysisResult:
-        """Run a full analysis up to given depth and return the final result."""
+        """Run a full analysis up to given depth and return the final result.
+
+        moves: 预设走法序列（分支推演），引擎从序列结束后的局面继续搜索。
+        """
+        # 请求打断正在跑的 WS 分析（若有），让电脑走棋优先拿到引擎锁
+        self._ws_interrupt.set()
         async with self._lock:
-            for attempt in range(2):
-                await self._ensure_alive()
-                try:
-                    return await self._analyse_once(fen, depth, multipv)
-                except EngineDiedError:
-                    if attempt == 0:
-                        logger.warning("engine died during analysis, restarting and retrying once")
-                        continue
-                    raise
+            try:
+                for attempt in range(2):
+                    await self._ensure_alive()
+                    try:
+                        return await self._analyse_once(fen, depth, multipv, moves)
+                    except EngineDiedError:
+                        if attempt == 0:
+                            logger.warning("engine died during analysis, restarting and retrying once")
+                            continue
+                        raise
+            finally:
+                # 清除打断标志：REST 完成即视为已让位。若不清除，
+                # WS 空闲时残留的 flag 会让下一次 WS 分析立即被误伤打断（info 一条不发）。
+                self._ws_interrupt.clear()
 
     async def _analyse_once(
-        self, fen: str, depth: int, multipv: int
+        self, fen: str, depth: int, multipv: int, moves: Optional[list[str]] = None
     ) -> AnalysisResult:
         await self._flush_pending()
         if multipv > 1:
             await self._send(uci.cmd_setoption("MultiPV", str(multipv)))
-        await self._send(uci.cmd_position(fen))
+        await self._send(uci.cmd_position(fen, moves))
         await self._send(uci.cmd_go(depth=depth))
 
         lines: dict[int, PVLine] = {}
@@ -131,34 +148,72 @@ class EngineManager:
             ponder=ponder,
             lines=sorted_lines,
             depth=sorted_lines[0].depth if sorted_lines else depth,
+            preset_moves=moves or [],
         )
 
+    async def fen_after_moves(self, fen: str, moves: list[str]) -> str:
+        """按预设走法序列走完后，返回引擎内部真实局面 FEN（通过 d 命令解析）。
+
+        引擎对 position moves 的处理（忽略/应用非法走法）不可靠，用 d 命令
+        获取权威局面，供分支推演的吃子/将军标注与中文记谱转换使用。
+        """
+        async with self._lock:
+            await self._flush_pending()
+            await self._send(uci.cmd_position(fen, moves))
+            await self._send("d")
+            async for raw in self._read_lines():
+                if raw.startswith("Fen:"):
+                    return raw.split("Fen:", 1)[1].strip()
+            return fen
+
     async def analyse_stream(
-        self, fen: str, depth: int = 20
+        self, fen: str, depth: int = 20, multipv: int = 1
     ) -> AsyncIterator[PVLine | AnalysisResult]:
-        """Stream intermediate analysis info lines, then yield final result."""
+        """Stream intermediate analysis info lines, then yield final result.
+
+        multipv>1 时跟踪前 N 条候选线（info 消息需带 multipv 索引识别）。
+        """
         async with self._lock:
             await self._ensure_alive()
             await self._flush_pending()
+            if multipv > 1:
+                await self._send(uci.cmd_setoption("MultiPV", str(multipv)))
             await self._send(uci.cmd_position(fen))
             await self._send(uci.cmd_go(depth=depth))
 
-            latest: Optional[PVLine] = None
+            latest: dict[int, PVLine] = {}
+            interrupted = False
             async for raw in self._read_lines():
+                if self._ws_interrupt.is_set():
+                    # REST 分析（电脑走棋）请求到达：让出引擎锁
+                    self._ws_interrupt.clear()
+                    interrupted = True
+                    await self._send(uci.cmd_stop())
+                    # 排空搜索输出（读至 bestmove）后让出
+                    async for _ in self._read_lines():
+                        if _.startswith("bestmove"):
+                            break
+                    break
                 if raw.startswith("bestmove"):
+                    if multipv > 1:
+                        await self._send(uci.cmd_setoption("MultiPV", "1"))
                     best_move, ponder = parse_bestmove(raw)
+                    lines = [latest[k] for k in sorted(latest.keys())]
                     yield AnalysisResult(
                         fen=fen,
                         best_move=best_move,
                         ponder=ponder,
-                        lines=[latest] if latest else [],
-                        depth=latest.depth if latest else depth,
+                        lines=lines,
+                        depth=lines[0].depth if lines else depth,
                     )
                     break
                 pv = parse_info_line(raw)
                 if pv and pv.pv:
-                    latest = pv
+                    mipv = _extract_multipv(raw) or 1
+                    latest[mipv] = pv
                     yield pv
+            if interrupted and multipv > 1:
+                await self._send(uci.cmd_setoption("MultiPV", "1"))
 
     async def _ensure_alive(self) -> None:
         """引擎进程已退出时自动重启，保证后续调用可用。"""
@@ -178,17 +233,49 @@ class EngineManager:
         except (RuntimeError, BrokenPipeError) as e:
             raise EngineDiedError(f"engine pipe closed: {e}") from e
 
-    async def _read_lines(self) -> AsyncIterator[str]:
+    async def _read_lines(self, timeout: float = 30.0) -> AsyncIterator[str]:
+        """读取引擎输出行；长时间无输出时主动中止搜索并抛超时错误。"""
         assert self._proc and self._proc.stdout
         while True:
-            raw = await asyncio.wait_for(
-                self._proc.stdout.readline(), timeout=30
-            )
+            try:
+                raw = await asyncio.wait_for(self._proc.stdout.readline(), timeout=timeout)
+            except asyncio.TimeoutError:
+                # 引擎超时无输出：先 stop 中止可能卡住的搜索，避免残留深搜阻塞后续调用
+                await self._hang_recovery()
+                raise
             if not raw:
                 raise EngineDiedError("engine process exited unexpectedly")
             line = raw.decode().strip()
             if line:
                 yield line
+
+    async def _hang_recovery(self) -> None:
+        """引擎超时无响应：先 stop 中止搜索；5 秒内仍无响应则强制重启进程。"""
+        logger.warning("engine unresponsive (timeout), sending stop...")
+        try:
+            await self._send(uci.cmd_stop())
+            await asyncio.wait_for(self._drain_until_idle(), timeout=5)
+            logger.info("engine search aborted after timeout")
+        except (EngineDiedError, asyncio.TimeoutError, RuntimeError):
+            logger.warning("engine still unresponsive, force restarting")
+            await self._restart()
+
+    async def _drain_until_idle(self) -> None:
+        """读引擎输出直到空闲标记（bestmove/readyok/uciok），丢弃中间行。"""
+        assert self._proc and self._proc.stdout
+        while True:
+            raw = await self._proc.stdout.readline()
+            if not raw:
+                raise EngineDiedError("engine exited")
+            line = raw.decode().strip()
+            if line.startswith(("bestmove", "readyok", "uciok")):
+                return
+
+    async def _restart(self) -> None:
+        """强制重启引擎进程。"""
+        self._proc = None
+        self._ready = False
+        await self.start()
 
     async def _read_until(self, token: str) -> list[str]:
         collected: list[str] = []

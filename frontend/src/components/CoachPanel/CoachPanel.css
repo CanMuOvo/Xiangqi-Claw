@@ -114,6 +114,31 @@
   flex: 1;
 }
 
+/* 【标签】高亮徽标：区块标题一目了然 */
+.coach-tag {
+  display: inline-block;
+  padding: 0 7px;
+  margin: 0 3px 2px 0;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gold-2);
+  background: rgba(200, 164, 92, 0.12);
+  border: 1px solid rgba(200, 164, 92, 0.35);
+  line-height: 1.5;
+}
+
+/* 走法红黑着色：中文记谱=红方，数字记谱=黑方 */
+.mv-red {
+  color: #e8837f;
+  font-weight: 600;
+}
+
+.mv-black {
+  color: #8fb5e8;
+  font-weight: 600;
+}
+
 /* 超长回复折叠：最多显示 6 行，展开按钮查看全文 */
 .coach-msg-content.clamped {
   display: -webkit-box;
@@ -136,6 +161,27 @@
 
 .coach-expand:hover {
   background: rgba(200, 164, 92, 0.12);
+}
+
+/* 沙盘演示按钮 */
+.coach-demo {
+  align-self: flex-start;
+  padding: 5px 12px;
+  margin-top: 2px;
+  background: linear-gradient(135deg, rgba(77, 157, 124, 0.18), rgba(77, 157, 124, 0.06));
+  border: 1px solid rgba(77, 157, 124, 0.5);
+  border-radius: 8px;
+  color: #7fc4a6;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.coach-demo:hover {
+  background: linear-gradient(135deg, rgba(77, 157, 124, 0.28), rgba(77, 157, 124, 0.1));
+  border-color: var(--jade);
+  box-shadow: 0 0 10px rgba(77, 157, 124, 0.2);
 }
 
 .coach-msg.user .coach-msg-content {

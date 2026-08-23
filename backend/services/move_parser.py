@@ -187,3 +187,154 @@ IMPORTANT: respond with ONLY the UCI move string, nothing else. If you cannot de
     if result in legal_moves:
         return result
     return None
+
+
+def uci_captures(fen: str, uci: str) -> Optional[str]:
+    """返回该走法吃掉的棋子中文名（未吃子返回 None）。"""
+    board = _parse_board(fen)
+    to_row = 9 - int(uci[3])
+    to_col = ord(uci[2]) - ord("a")
+    piece = board[to_row][to_col]
+    if not piece:
+        return None
+    return FEN_PIECE_ORDER.get(piece, piece)
+
+
+def _is_king_in_check(board: list[list[str]], king_r: int, king_c: int, king_is_red: bool) -> bool:
+    """判断 (king_r, king_c) 的将/帅是否被对方棋子攻击（覆盖车/炮/马/兵/白脸将）。"""
+    enemy_red = not king_is_red
+
+    def is_enemy(piece: str) -> bool:
+        return bool(piece) and piece.isupper() == enemy_red
+
+    # 直线：车（无遮挡）/ 炮（恰好一个炮架）
+    for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+        blockers = 0
+        rr, cc = king_r + dr, king_c + dc
+        while 0 <= rr < 10 and 0 <= cc < 9:
+            piece = board[rr][cc]
+            if piece:
+                if is_enemy(piece):
+                    if blockers == 0 and piece.upper() == "R":
+                        return True
+                    if blockers == 1 and piece.upper() == "C":
+                        return True
+                blockers += 1
+                if blockers >= 2:
+                    break
+            rr += dr
+            cc += dc
+
+    # 马（日字，检查蹩腿）
+    for dr, dc in ((-2, -1), (-2, 1), (2, -1), (2, 1), (-1, -2), (-1, 2), (1, -2), (1, 2)):
+        rr, cc = king_r + dr, king_c + dc
+        if not (0 <= rr < 10 and 0 <= cc < 9):
+            continue
+        piece = board[rr][cc]
+        if is_enemy(piece) and piece.upper() == "N":
+            if abs(dr) == 2:
+                if not board[king_r + dr // 2][king_c]:
+                    return True
+            else:
+                if not board[king_r][king_c + dc // 2]:
+                    return True
+
+    # 兵/卒：红兵攻击上方一步，黑卒攻击下方一步
+    if enemy_red:
+        # 红兵在将帅下方一格（红兵向前打）
+        r, c = king_r + 1, king_c
+        if 0 <= r < 10 and board[r][c] == "P":
+            return True
+    else:
+        # 黑卒在将帅上方一格（黑卒向前打）
+        r, c = king_r - 1, king_c
+        if 0 <= r < 10 and board[r][c] == "p":
+            return True
+
+    # 白脸将：同列无遮挡的对方将/帅（将帅不能照面，竖线互相对视）
+    for rr in range(king_r + 1, 10):
+        piece = board[rr][king_c]
+        if piece:
+            if is_enemy(piece) and piece.upper() == "K":
+                return True
+            break
+    for rr in range(king_r - 1, -1, -1):
+        piece = board[rr][king_c]
+        if piece:
+            if is_enemy(piece) and piece.upper() == "K":
+                return True
+            break
+
+    return False
+
+
+def is_check_after_move(fen: str, uci: str) -> bool:
+    """走完该步后，对方将/帅是否处于被将军状态（轻量规则判定）。"""
+    new_fen = apply_uci_to_fen(fen, uci)
+    board = _parse_board(new_fen)
+    # 走完后轮到对方走，被将军的是对方将/帅：
+    # turn=w → 红方被将军（查红帅 K）；turn=b → 黑方被将军（查黑将 k）
+    king_is_red = new_fen.split()[1] == "w"
+    target = "K" if king_is_red else "k"
+    for r in range(10):
+        for c in range(9):
+            if board[r][c] == target:
+                return _is_king_in_check(board, r, c, king_is_red)
+    return False
+
+
+def apply_uci_to_fen(fen: str, uci: str) -> str:
+    """把 UCI 走法应用到 FEN，返回新 FEN（棋子移动 + 吃子 + 轮换走子方）。
+
+    仅做坐标推进，不校验合法性（教学场景信任用户描述的走法，
+    非法序列由引擎 position 命令兜底）。
+    """
+    from_file, from_rank, to_file, to_rank = uci[0], uci[1], uci[2], uci[3]
+    from_row = 9 - int(from_rank)
+    to_row = 9 - int(to_rank)
+    from_col = ord(from_file) - ord("a")
+    to_col = ord(to_file) - ord("a")
+    board = _parse_board(fen)
+    piece = board[from_row][from_col]
+    board[from_row][from_col] = ""
+    board[to_row][to_col] = piece
+
+    ranks = []
+    for row in board:
+        s = ""
+        empty = 0
+        for ch in row:
+            if ch == "":
+                empty += 1
+            else:
+                if empty:
+                    s += str(empty)
+                    empty = 0
+                s += ch
+        if empty:
+            s += str(empty)
+        ranks.append(s)
+
+    parts = fen.split()
+    parts[0] = "/".join(ranks)
+    parts[1] = "b" if parts[1] == "w" else "w"
+    return " ".join(parts)
+
+
+def extract_move_sequence(text: str, fen: str, max_moves: int = 8) -> list[str]:
+    """从自然语言中提取连续的标准记谱走法序列（分支推演用）。
+
+    例：「我下炮二平五，黑马8进7，我马二进三」→ ["b2e2", "b9c7", "h2g3"]。
+    每步基于上一步后的局面解析（红黑轮转），解析失败即停止。
+    """
+    moves: list[str] = []
+    current_fen = fen
+    for m in STANDARD_RE.finditer(text):
+        uci = parse_standard_notation(m.group(0), current_fen)
+        if not uci:
+            break
+        moves.append(uci)
+        current_fen = apply_uci_to_fen(current_fen, uci)
+        if len(moves) >= max_moves:
+            break
+    return moves

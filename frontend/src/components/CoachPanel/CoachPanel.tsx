@@ -5,11 +5,17 @@ interface Props {
   fen: string;
   historyCn: string;
   playerAtBottom: 'w' | 'b';
+  /** 沙盘演示：把教练推演的走法序列交给沙盘自动演示 */
+  onDemoMoves?: (moves: string[]) => void;
 }
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
+  /** 可沙盘演示的走法序列（UCI） */
+  sandboxMoves?: string[];
+  /** 消息生成时的局面 FEN：局面变化后推演按钮失效（序列不再匹配） */
+  fen?: string;
 }
 
 const QUICK_QUESTIONS = ['当前谁优势？', '我该怎么走？', '可以绝杀吗？'];
@@ -18,6 +24,7 @@ export default function CoachPanel({
   fen,
   historyCn,
   playerAtBottom,
+  onDemoMoves,
 }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -48,6 +55,41 @@ export default function CoachPanel({
       }
       return next;
     });
+  };
+
+  // 识别走法片段：中文数字（一二三）= 红方走法，阿拉伯数字（1-9）= 黑方走法
+  const renderMoves = (text: string, keyStart: number): React.ReactNode[] => {
+    const out: React.ReactNode[] = [];
+    const moveRe = /([車车馬马象相士仕將将帥帅炮砲兵卒])([一二三四五六七八九1-9１-９])([進进退平])([一二三四五六七八九1-9１-９])/g;
+    let last = 0;
+    let m: RegExpExecArray | null;
+    let k = keyStart;
+    while ((m = moveRe.exec(text)) !== null) {
+      if (m.index > last) out.push(text.slice(last, m.index));
+      const isRed = /[一二三四五六七八九]/.test(m[2]);
+      out.push(
+        <span key={k++} className={isRed ? 'mv-red' : 'mv-black'}>{m[0]}</span>,
+      );
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) out.push(text.slice(last));
+    return out;
+  };
+
+  // 渲染消息内容：把【标签】转成金色高亮徽标，走法按红黑着色，正文保持原样
+  const renderContent = (content: string) => {
+    const tokens: React.ReactNode[] = [];
+    const re = /【([^】]+)】/g;
+    let last = 0;
+    let m: RegExpExecArray | null;
+    let key = 0;
+    while ((m = re.exec(content)) !== null) {
+      if (m.index > last) tokens.push(...renderMoves(content.slice(last, m.index), key));
+      tokens.push(<span key={key++} className="coach-tag">{m[1]}</span>);
+      last = m.index + m[0].length;
+    }
+    if (last < content.length) tokens.push(...renderMoves(content.slice(last), key));
+    return tokens;
   };
 
   // 换局面（走棋/回看/新局）：保留历史对话；仅当当前局面有过实际问答时才插入分隔提示
@@ -114,7 +156,14 @@ export default function CoachPanel({
       });
       if (resp.ok) {
         const data = await resp.json();
-        setMessages([...nextMessages, { role: 'assistant', content: data.reply }]);
+        setMessages([...nextMessages, {
+          role: 'assistant',
+          content: data.reply,
+          fen,
+          sandboxMoves: Array.isArray(data.sandbox_moves) && data.sandbox_moves.length > 0
+            ? data.sandbox_moves
+            : undefined,
+        }]);
       } else {
         const err = await resp.json().catch(() => ({ detail: '请求失败' }));
         setMessages([...nextMessages, { role: 'assistant', content: err.detail || '请求失败' }]);
@@ -149,11 +198,16 @@ export default function CoachPanel({
               <span className="coach-msg-label">{m.role === 'user' ? '你' : '教练'}</span>
               <div className="coach-msg-body">
                 <div className={`coach-msg-content${isLongContent(m.content) && !expanded.has(i) ? ' clamped' : ''}`}>
-                  {m.content}
+                  {renderContent(m.content)}
                 </div>
                 {isLongContent(m.content) && (
                   <button className="coach-expand" onClick={() => toggleExpand(i)}>
                     {expanded.has(i) ? '收起 ▴' : '展开全部 ▾'}
+                  </button>
+                )}
+                {m.role === 'assistant' && m.sandboxMoves && m.sandboxMoves.length > 0 && m.fen === fen && (
+                  <button className="coach-demo" onClick={() => onDemoMoves?.(m.sandboxMoves!)}>
+                    ▶ 沙盘演示推演
                   </button>
                 )}
               </div>

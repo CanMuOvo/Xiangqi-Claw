@@ -113,7 +113,127 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  animation: info-fade-in 0.35s ease;
+}
+
+/* Top 3 候选线列表 */
+.top-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.top-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-width: 0;
+}
+
+/* 最佳候选：金色高亮 */
+.top-line.best {
+  background: linear-gradient(135deg, rgba(200, 164, 92, 0.14), rgba(200, 164, 92, 0.04));
+  border-color: rgba(200, 164, 92, 0.45);
+}
+
+.rank-badge {
+  font-size: 13px;
+  color: var(--ink-3);
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+}
+
+.top-line.best .rank-badge {
+  color: var(--gold-2);
+}
+
+.tl-move {
+  font-family: var(--serif);
+  font-size: 15px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.tl-move.tl-red { color: #e8837f; }
+.tl-move.tl-black { color: #8fb5e8; }
+
+.top-line.best .tl-move {
+  color: var(--gold-2);
+}
+
+.tl-score {
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+
+.top-line.best .tl-score {
+  color: var(--gold-2);
+}
+
+.tl-depth {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--ink-3);
+  flex-shrink: 0;
+}
+
+/* 移动端 Top 线紧凑 */
+@media (max-width: 960px) {
+  .top-line {
+    padding: 6px 8px;
+    gap: 6px;
+  }
+
+  .tl-move {
+    font-size: 14px;
+  }
+
+  .tl-depth {
+    display: none;
+  }
+}
+
+/* 走棋后新分析未到：只淡化数值，固定标签保持清晰 */
+.analysis-info.stale {
+  position: relative;
+}
+
+.analysis-info.stale .score-value,
+.analysis-info.stale .depth-badge,
+.analysis-info.stale .pv-moves,
+.analysis-info.stale .engine-stats {
+  opacity: 0.5;
+  transition: opacity 0.3s;
+}
+
+/* 变化线/最佳走法文字更新时淡入（标签不动） */
+.pv-moves span,
+.best-move {
+  animation: value-swap 0.35s ease;
+}
+
+@keyframes value-swap {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.stale-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-size: 11px;
+  color: var(--gold-2);
+  background: rgba(200, 164, 92, 0.12);
+  border: 1px solid rgba(200, 164, 92, 0.4);
+  border-radius: 999px;
+  padding: 1px 8px;
 }
 
 @keyframes info-fade-in {
@@ -144,21 +264,32 @@
   border: 1px solid var(--line);
 }
 
+/* 分数含义说明 */
+.score-hint {
+  font-size: 11px;
+  color: var(--ink-3);
+  margin-left: auto;
+  cursor: help;
+  white-space: nowrap;
+}
+
 .pv-line {
-  font-size: 13px;
-  line-height: 1.4;
-  min-height: 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 42px;
 }
 
 .pv-label {
   color: var(--ink-2);
-  margin-right: 6px;
+  font-size: 13px;
 }
 
 .pv-moves {
   color: var(--ink);
   font-family: 'Menlo', 'Consolas', monospace;
   font-size: 12px;
+  line-height: 1.5;
   word-break: break-all;
 }
 
@@ -174,12 +305,23 @@
   font-variant-numeric: tabular-nums;
 }
 
+.stat-num {
+  color: var(--ink-2);
+  animation: value-swap 0.3s ease;
+}
+
 .best-move-display {
   display: flex;
   align-items: center;
   gap: 8px;
   padding-top: 8px;
   animation: info-fade-in 0.3s ease;
+}
+
+/* 新结果未到时：旧最佳走法数值半透明占位，固定标签保持清晰不刷新 */
+.best-move-display.stale .best-move {
+  opacity: 0.5;
+  transition: opacity 0.3s;
 }
 
 .best-label {
@@ -205,45 +347,139 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  transition: opacity 0.3s;
+}
+
+/* 胜率数据过期（新局面浅层分析未到）：降透明度平滑等待新数据 */
+.rates-section.stale {
+  opacity: 0.5;
 }
 
 .winrate {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
-.winrate-labels {
+/* 紧凑模式（移动端棋盘上方）：数字写在条上方 */
+.winrate.compact {
+  gap: 3px;
+}
+
+.winrate-labels.compact {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
+.wr-mini.red { color: #e8837f; }
+.wr-mini.draw { color: var(--ink-2); }
+.wr-mini.black { color: #8fb5e8; }
+
+.wr-mini.lead {
+  color: var(--gold-2);
+  font-weight: 700;
+}
+
+.wr-num-mini {
+  font-weight: 600;
+}
+
+/* 行式胜率：红方 xx% / 和棋 xx% / 黑方 xx% */
+.winrate-labels {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   font-variant-numeric: tabular-nums;
 }
 
-.winrate-red { color: #e8837f; }
-.winrate-draw { color: var(--ink-2); }
-.winrate-black { color: #8fb5e8; }
+.wr-item {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.wr-num {
+  font-size: 16px;
+  font-weight: 700;
+  font-family: var(--serif);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  transition: color 0.3s;
+}
+
+.wr-name {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.wr-item.red .wr-name { color: #f0a9a5; }
+.wr-item.draw .wr-name { color: #a4b1c8; }
+.wr-item.black .wr-name { color: #a9c6ea; }
+.wr-item.red .wr-num { color: #e8837f; }
+.wr-item.draw .wr-num { color: var(--ink-2); }
+.wr-item.black .wr-num { color: #8fb5e8; }
+
+/* 领先方：金色高亮 + 微光 */
+.wr-item.lead .wr-num {
+  color: var(--gold-2);
+  text-shadow: 0 0 12px rgba(232, 202, 130, 0.45);
+}
+
+.wr-item.lead .wr-name {
+  color: rgba(232, 202, 130, 0.8);
+}
 
 .eval-bar {
+  position: relative;
   display: flex;
-  height: 8px;
-  border-radius: 4px;
+  height: 12px;
+  border-radius: 6px;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
+/* 数据刷新时：宽度弹性回弹（overshoot）+ 顶部高光，移动更出彩 */
 .eval-red {
-  background: linear-gradient(180deg, #d64541, #b03a36);
-  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  background: linear-gradient(180deg, #e05a50, #b03a36 60%, #8f2b28);
+  transition: width 0.9s cubic-bezier(0.34, 1.4, 0.64, 1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
 .eval-draw {
-  background: linear-gradient(180deg, #64748b, #475569);
-  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  background: linear-gradient(180deg, #7a879c, #566170 60%, #434c59);
+  transition: width 0.9s cubic-bezier(0.34, 1.4, 0.64, 1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
 .eval-black {
-  background: linear-gradient(180deg, #3b6fb8, #2c568f);
-  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  background: linear-gradient(180deg, #4a82c9, #35639f 60%, #294c78);
+  transition: width 0.9s cubic-bezier(0.34, 1.4, 0.64, 1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+/* 光泽流动：细光带缓慢扫过胜率条，数据移动时有流动感 */
+.eval-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.18) 50%,
+    transparent 70%
+  );
+  transform: translateX(-100%);
+  animation: bar-shimmer 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes bar-shimmer {
+  0% { transform: translateX(-100%); }
+  55%, 100% { transform: translateX(100%); }
 }

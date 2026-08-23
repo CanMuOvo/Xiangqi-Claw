@@ -10,6 +10,7 @@ export interface EngineInfo {
   pv_cn?: string[];
   nodes: number;
   nps: number;
+  multipv?: number;
 }
 
 export interface EngineResult {
@@ -32,6 +33,8 @@ export function useEngine() {
   const [connected, setConnected] = useState(false);
   const [engineName, setEngineName] = useState<string | null>(null);
   const [info, setInfo] = useState<EngineInfo | null>(null);
+  // Top N 候选线（按 multipv 索引存，lines[0] 即最佳）
+  const [lines, setLines] = useState<EngineInfo[]>([]);
   const [result, setResult] = useState<EngineResult | null>(null);
   const [analysing, setAnalysing] = useState(false);
   const [shallow, setShallow] = useState<ShallowScore | null>(null);
@@ -64,7 +67,17 @@ export function useEngine() {
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
         if (data.type === 'info') {
-          setInfo(data as EngineInfo);
+          const infoMsg = data as EngineInfo;
+          const mipv = infoMsg.multipv ?? 1;
+          // 按 multipv 索引存入候选线（0 = 最佳）
+          setLines((prev) => {
+            const next = [...prev];
+            next[mipv - 1] = infoMsg;
+            return next.slice(0, 3);
+          });
+          if (mipv === 1) {
+            setInfo(infoMsg);
+          }
           // 记录浅层分数：depth <= 6 时子力+位置优势还在，未被残局例和收敛冲掉
           if (data.depth <= 6) {
             setShallow({
@@ -75,6 +88,9 @@ export function useEngine() {
           }
         } else if (data.type === 'bestmove') {
           setResult(data as EngineResult);
+          setAnalysing(false);
+        } else if (data.type === 'stopped') {
+          // 分析被电脑走棋等 REST 请求打断：停止"分析中"状态（保留最近数据）
           setAnalysing(false);
         }
       };
@@ -91,21 +107,19 @@ export function useEngine() {
     };
   }, []);
 
-  const analyse = useCallback((fen: string, depth = 18) => {
+  const analyse = useCallback((fen: string, depth = 16) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-    setInfo(null);
-    setResult(null);
-    setShallow(null);
+    // 不清空旧数据：新局面的结果未到前由面板的 stale 机制（降透明度+更新中）衔接展示，
+    // 避免走棋后分析内容消失导致面板高度跳动
     setAnalysing(true);
-    wsRef.current.send(JSON.stringify({ fen, depth }));
+    wsRef.current.send(JSON.stringify({ fen, depth, multipv: 3 }));
   }, []);
 
   // 仅浅层分析（depth 6）：供实时胜率独立取数，不触碰分析面板的 info/result/analysing
   const analyseShallow = useCallback((fen: string) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-    setShallow(null);
-    wsRef.current.send(JSON.stringify({ fen, depth: 6 }));
+    wsRef.current.send(JSON.stringify({ fen, depth: 6, multipv: 1 }));
   }, []);
 
-  return { connected, engineName, info, result, analysing, shallow, analyse, analyseShallow };
+  return { connected, engineName, info, lines, result, analysing, shallow, analyse, analyseShallow };
 }

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Board as BoardType, PieceChar, Square } from '../../lib/fen';
 import { isRedPiece } from '../../lib/fen';
 import { BOARD_THEMES, type BoardTheme } from '../../lib/boardThemes';
@@ -27,6 +27,8 @@ interface Props {
   onAnimDone?: () => void;
   /** 推演画线（拖动）与正常走棋（单击）共存，无需模式开关 */
   theme?: BoardTheme;
+  /** 当前轮走方：下子的一方只能抬起自己的棋子 */
+  turn?: 'w' | 'b';
 }
 
 function toX(col: number) { return PAD + col * CELL; }
@@ -41,6 +43,7 @@ export default function Board({
   flipped = false,
   onAnimDone,
   theme = BOARD_THEMES[0],
+  turn,
 }: Props) {
   const [selected, setSelected] = useState<Square | null>(null);
   const [targets, setTargets] = useState<Square[]>([]);
@@ -51,7 +54,7 @@ export default function Board({
   // 按下记录：超过拖拽阈值才进入画线，与单击走棋区分
   const [dragStart, setDragStart] = useState<{ sq: Square; x: number; y: number } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  // 走子滑动动画：队列依次播放，快速连走/被吃时不会吞掉未完成的动画
+  // 走子滑动动画：rAF 逐帧插值
   const [anim, setAnim] = useState<{
     piece: PieceChar;
     from: Square;
@@ -63,6 +66,15 @@ export default function Board({
   const animQueueRef = useRef<{ piece: PieceChar; from: Square; to: Square }[]>([]);
   const playingRef = useRef(false);
   const rafRef = useRef(0);
+  // 最近一次动画是否已完成：完成后停止"渲染期派生初始动画"（lastMove 保留给上一步标记）
+  const animFinishedRef = useRef(true);
+  // 渲染期同步：识别"新的动画请求"（lastMove 变化）并立即置 animFinished=false，
+  // 避免首帧（useLayoutEffect 运行前）派生动画不生效导致棋子瞬移
+  const lastMoveRef = useRef(lastMove);
+  if (lastMove !== lastMoveRef.current) {
+    animFinishedRef.current = false;
+    lastMoveRef.current = lastMove;
+  }
   const onAnimDoneRef = useRef(onAnimDone);
   onAnimDoneRef.current = onAnimDone;
 
@@ -83,6 +95,7 @@ export default function Board({
         rafRef.current = requestAnimationFrame(tick);
       } else {
         setAnim(null);
+        animFinishedRef.current = true; // 动画完成
         playingRef.current = false;
         playNext();
         if (animQueueRef.current.length === 0) {
@@ -90,14 +103,18 @@ export default function Board({
         }
       }
     };
-    rafRef.current = requestAnimationFrame(tick);
+    // 同步设置初始帧（t=0）：局面已更新（目标格有子），若等 rAF 下一帧
+    // 会有一整帧渲染 anim 为空 → 目标格棋子闪现一帧
+    tick(start);
   }, []);
 
-  useEffect(() => {
+  // 动画在绘制前同步启动（useLayoutEffect）：避免"局面已更新但 anim 未设置"的闪现帧
+  useLayoutEffect(() => {
     if (!lastMove) return;
     const { from, to } = lastMove;
     const piece = boardRef.current[to.row][to.col];
     if (!piece) return;
+    animFinishedRef.current = false; // 新走棋：动画未完成
     animQueueRef.current.push({ piece, from, to });
     playNext();
   }, [lastMove, playNext]);
@@ -192,12 +209,13 @@ export default function Board({
         setSelected(null);
         setTargets([]);
         setAnalysisMoves([]); // 真实走棋：推演箭头失去意义，清除
-      } else if (piece) {
+      } else if (piece && (!turn || isRedPiece(piece) === (turn === 'w'))) {
+        // 只能抬起当前轮走方自己的棋子
         setSelected({ row, col });
         if (legalTargets) setTargets(legalTargets({ row, col }));
       }
     },
-    [board, selected, onMove, legalTargets],
+    [board, selected, onMove, legalTargets, turn],
   );
 
   const renderGrid = () => {
@@ -344,8 +362,8 @@ export default function Board({
     const ex = x2 - ux * endOff;
     const ey = y2 - uy * endOff;
     // 箭头头：尖端落在终点中心，底边略缩回
-    const headLen = CELL * 0.34;
-    const headHalf = CELL * 0.16;
+    const headLen = CELL * 0.38;
+    const headHalf = CELL * 0.18;
     const px = -uy;
     const py = ux;
     const tip = `${x2},${y2}`;
@@ -354,16 +372,40 @@ export default function Board({
     const b1 = `${bx + px * headHalf},${by + py * headHalf}`;
     const b2 = `${bx - px * headHalf},${by - py * headHalf}`;
     return (
-      <g className="best-move-arrow">
+      <g className="best-move-arrow" key={`${from.col}${from.row}-${to.col}${to.row}`}>
+        <defs>
+          <linearGradient id="bm-arrow-grad" gradientUnits="userSpaceOnUse" x1={x1} y1={y1} x2={x2} y2={y2}>
+            <stop offset="0%" stopColor="#86efac" />
+            <stop offset="100%" stopColor="#16a34a" />
+          </linearGradient>
+        </defs>
+        {/* 柔光层：粗半透明，营造光晕 */}
         <line
           x1={sx} y1={sy} x2={ex} y2={ey}
-          stroke="#15781B" strokeWidth="3.5" opacity="0.7"
+          stroke="url(#bm-arrow-grad)" strokeWidth="9" opacity="0.16"
           strokeLinecap="round"
         />
-        <polygon points={`${tip} ${b1} ${b2}`} fill="#15781B" opacity="0.85" />
+        {/* 主线：起点淡绿 → 终点亮绿 */}
+        <line
+          x1={sx} y1={sy} x2={ex} y2={ey}
+          stroke="url(#bm-arrow-grad)" strokeWidth="4"
+          strokeLinecap="round"
+        />
+        <polygon points={`${tip} ${b1} ${b2}`} fill="url(#bm-arrow-grad)" />
       </g>
     );
   };
+
+  // 动画棋子（含"渲染期派生"的初始帧）：
+  // anim 未设置但刚走棋（lastMove 存在、动画未完成）时，从 lastMove 派生 t=0 的动画，
+  // 保证落点棋子从不闪现（不依赖 useEffect/useLayoutEffect 的时序）
+  let effectiveAnim: { piece: PieceChar; from: Square; to: Square; t: number } | null = anim;
+  if (!effectiveAnim && lastMove && !animFinishedRef.current) {
+    const p = board[lastMove.to.row]?.[lastMove.to.col];
+    if (p) {
+      effectiveAnim = { piece: p, from: lastMove.from, to: lastMove.to, t: 0 };
+    }
+  }
 
   const renderPieces = () => {
     const pieces: React.JSX.Element[] = [];
@@ -371,7 +413,9 @@ export default function Board({
       for (let c = 0; c < 9; c++) {
         const piece = board[r][c];
         if (!piece) continue;
-        if (anim && anim.to.row === r && anim.to.col === c) continue;
+        // 走棋动画期间（lastMove 存在、动画未完成）：落点静止棋子永不渲染
+        // （直接按 lastMove 判定，不依赖 anim/派生 的时序）——动画完成后落点正常显示
+        if (lastMove && !animFinishedRef.current && lastMove.to.row === r && lastMove.to.col === c) continue;
 
         const x = toX(displayCol(c));
         const y = toY(displayRow(r));
@@ -384,6 +428,13 @@ export default function Board({
             onClick={() => handleClick(r, c)}
             style={{ cursor: 'pointer' }}
           >
+            {lifted && (
+              <ellipse
+                cx={x} cy={y + CELL * 0.5}
+                rx={CELL * 0.34} ry={CELL * 0.09}
+                className="piece-shadow"
+              />
+            )}
             <circle cx={x} cy={y} r={CELL * 0.42}
               className={isRed ? 'piece-bg-red' : 'piece-bg-black'}
             />
@@ -397,6 +448,12 @@ export default function Board({
             >
               {PIECE_NAMES[piece]}
             </text>
+            {lifted && (
+              <circle
+                cx={x} cy={y} r={CELL * 0.52}
+                className="piece-glow-ring"
+              />
+            )}
           </g>,
         );
       }
@@ -406,8 +463,8 @@ export default function Board({
 
   // 滑动动画中的棋子：插值位置渲染，动画结束由静态棋子接管
   const renderAnimPiece = () => {
-    if (!anim) return null;
-    const { piece, from, to, t } = anim;
+    if (!effectiveAnim) return null;
+    const { piece, from, to, t } = effectiveAnim;
     // easeOutCubic：加速启动、平稳落地
     const e = 1 - Math.pow(1 - t, 3);
     const x = toX(displayCol(from.col)) + (toX(displayCol(to.col)) - toX(displayCol(from.col))) * e;

@@ -24,6 +24,7 @@ def parse_info_line(line: str) -> Optional[PVLine]:
 
     wdl = _extract_wdl(line)
     pv = _extract_pv(line)
+    multipv = _extract_int(line, "multipv") or 1
 
     return PVLine(
         depth=depth,
@@ -33,6 +34,7 @@ def parse_info_line(line: str) -> Optional[PVLine]:
         pv=pv,
         nodes=nodes,
         nps=nps,
+        multipv=multipv,
     )
 
 
