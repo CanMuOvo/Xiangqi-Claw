@@ -8,6 +8,7 @@ import { VsComputerDialog } from './components/VsComputerDialog';
 import type { VsSide } from './components/VsComputerDialog';
 import { BoardEffect } from './components/BoardEffect';
 import { BoardThemeDialog } from './components/BoardThemeDialog';
+import { XqpView } from './components/XqpView';
 import { BOARD_THEMES } from './lib/boardThemes';
 import { useGame } from './hooks/useGame';
 import { useEngine, type ShallowScore } from './hooks/useEngine';
@@ -103,23 +104,38 @@ export default function App() {
 
   const prevFenRef = useRef<string>('');
 
-  const [computerSide, setComputerSide] = useState<'w' | 'b' | null>(null);
-  const [difficulty, setDifficulty] = useState<Difficulty>('master');
+  const [computerSide, setComputerSide] = useState<'w' | 'b' | null>('b');
+  const [difficulty, setDifficulty] = useState<Difficulty>('easy');
   const [computerThinking, setComputerThinking] = useState(false);
   const [computerRetry, setComputerRetry] = useState(0);
   const [computerError, setComputerError] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
-  // 移动端：棋盘首屏 + 底部 Tab 切换面板
-  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 960px)').matches);
+  // 移动端：窄屏 + 触摸设备（hover:none）双条件——PC 浏览器缩小窗口保持桌面布局
+  const MOBILE_QUERY = '(max-width: 960px) and (hover: none)';
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia(MOBILE_QUERY).matches);
   // 走棋提醒：每步与最优解差距超阈值时提示（学习辅助）
   const [moveCheck, setMoveCheck] = useState(false);
   const [moveCheckMsg, setMoveCheckMsg] = useState<string | null>(null);
   const bestRef = useRef<{ fen: string; turn: 'w' | 'b'; score: number } | null>(null);
   const moveCheckTimerRef = useRef<number | null>(null);
   const [mobileTab, setMobileTab] = useState<'menu' | 'coach' | 'analysis' | 'history'>('menu');
+  // 桌面端强制单栏布局（所有功能栏纵向堆叠，相当于窗口 <700px 的布局）
+  const [stackView, setStackView] = useState(false);
+  // 棋谱库全屏界面（参考编辑局面的独立页面）
+  const [xqpOpen, setXqpOpen] = useState(false);
+  // 终局卡：落子动画 + 绝杀/困毙特效（约 1200ms）全部结束后再弹出
+  const [showGameOver, setShowGameOver] = useState(false);
+  useEffect(() => {
+    if (!game.gameOver) {
+      setShowGameOver(false);
+      return;
+    }
+    const t = window.setTimeout(() => setShowGameOver(true), 1300);
+    return () => window.clearTimeout(t);
+  }, [game.gameOver]);
 
   useEffect(() => {
-    const mq = window.matchMedia('(max-width: 960px)');
+    const mq = window.matchMedia(MOBILE_QUERY);
     const handler = () => setIsMobile(mq.matches);
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
@@ -127,6 +143,7 @@ export default function App() {
   // 沙盘推演：自由控制双方模拟走棋，退出时恢复原对局
   const [sandbox, setSandbox] = useState(false);
   const sandboxSnapshotRef = useRef<{ moves: string[]; startFen: string; index: number } | null>(null);
+  // 棋谱复盘：载入棋谱逐步播放，退出时恢复原对局
   // 沙盘自动演示：教练推演的走法序列，进入沙盘后定时逐步走出
   const [demoMoves, setDemoMoves] = useState<string[] | null>(null);
   // 演示开始时的局面：演示期间固定传给教练，避免触发"局面已变化"分隔提示
@@ -198,6 +215,13 @@ export default function App() {
   };
   // 棋盘走子动画是否仍在播放（播放期间电脑不走棋，保证"一方下完另一方再走"）
   const [animBusy, setAnimBusy] = useState(false);
+  // ref 是点击拦截的权威（同步更新）：state 经 useEffect 同步有滞后，
+  // 同一事件循环内的连点会漏拦导致动画错乱瞬移
+  const animBusyRef = useRef(false);
+  const setAnimBusyNow = useCallback((v: boolean) => {
+    animBusyRef.current = v;
+    setAnimBusy(v);
+  }, []);
   // 新开局计数器：变化时重挂载 CoachPanel 清空对话
   const [newGameNonce, setNewGameNonce] = useState(0);
   // 棋盘中央文字特效（吃子/将军/绝杀）
@@ -209,7 +233,6 @@ export default function App() {
   const effectKeyRef = useRef(0);
   const effectTimerRef = useRef<number | null>(null);
   const computerBusy = useRef(false);
-  const animBusyRef = useRef(animBusy);
   const computerSideRef = useRef(computerSide);
   const positionRef = useRef(game.position);
 
@@ -290,10 +313,6 @@ export default function App() {
     },
     [showBoardEffect],
   );
-
-  useEffect(() => {
-    animBusyRef.current = animBusy;
-  }, [animBusy]);
 
   useEffect(() => {
     computerSideRef.current = computerSide;
@@ -384,6 +403,9 @@ export default function App() {
     if (sandbox) return; // 沙盘推演：电脑不自动走棋
     const side = computerSideRef.current;
     if (!side || game.gameOver) return;
+    // 走棋记录回看/跳转不触发电脑走棋：只在最新局面轮到电脑时才走
+    // （否则点击某一步跳到电脑回合，电脑会立即走棋并截断之后的记录）
+    if (game.currentIndex !== game.moveHistory.length - 1) return;
     if (game.position.turn !== side) return;
     if (animBusyRef.current) return; // 等上一方走子动画播完再走
     if (computerBusy.current) return;
@@ -461,7 +483,7 @@ export default function App() {
       const before = game.position;
       const ok = game.tryMove(from, to);
       if (ok) {
-        setAnimBusy(true);
+        setAnimBusyNow(true);
         triggerMoveEffects(before, from, to);
         setLastMove({ from, to });
         setBestMoveArrow(null);
@@ -518,6 +540,10 @@ export default function App() {
     prevFenRef.current = '';
     if (effectTimerRef.current !== null) window.clearTimeout(effectTimerRef.current);
     if (moveCheckTimerRef.current !== null) window.clearTimeout(moveCheckTimerRef.current);
+    if (historyTimerRef.current !== null) window.clearTimeout(historyTimerRef.current);
+    replayActiveRef.current = false;
+    animBusyRef.current = false;
+    setAnimBusy(false);
     setBoardEffect(null);
   };
 
@@ -565,10 +591,9 @@ export default function App() {
     setSandbox(false);
   };
 
-  // ---- 沙盘自动演示：ref + 递归 setTimeout 实现（消除 effect 闭包/时序隐患）----
+  const demoStepTimerRef = useRef<number | null>(null);
   const demoMovesRef = useRef<string[]>([]);
   const demoStepRef = useRef(0);
-  const demoStepTimerRef = useRef<number | null>(null);
   // 始终持有最新 handleBoardMove（带滑动动画；useCallback 随局面更新，渲染期同步到 ref）
   const handleBoardMoveRef = useRef<((from: Square, to: Square) => boolean) | null>(null);
   handleBoardMoveRef.current = handleBoardMove;
@@ -625,13 +650,16 @@ export default function App() {
     demoStepTimerRef.current = window.setTimeout(() => stepDemo(0), 300);
   };
 
-  // 沙盘上一步/下一步：带滑动动画（按被回退/前进的走法触发反向/正向动画）
+  // 沙盘上一步/下一步：带滑动动画（按被回退/前进的走法触发反向/正向动画）；
+  // 动画进行中忽略新的点击，等位移结束再响应
   const stepSandbox = (dir: 1 | -1) => {
+    if (animBusyRef.current) return; // 上一步动画未结束，忽略本次点击
     stopAutoPlay(); // 手动接管时停止自动推演
     if (dir < 0) {
       if (game.currentIndex <= sandboxMinIndex) return;
       const move = game.moveHistory[game.currentIndex];
       if (!move) return;
+      setAnimBusyNow(true);
       game.goToMove(game.currentIndex - 1);
       const mv = parseUciMove(move.uci);
       setLastMove({ from: mv.to, to: mv.from }); // 棋子从落点滑回起点
@@ -639,6 +667,7 @@ export default function App() {
       const target = game.currentIndex + 1;
       const move = game.moveHistory[target];
       if (!move) return;
+      setAnimBusyNow(true);
       game.goToMove(target);
       const mv = parseUciMove(move.uci);
       setLastMove({ from: mv.from, to: mv.to }); // 棋子从起点滑向落点
@@ -701,7 +730,10 @@ export default function App() {
           bestMoveArrow={showAnalysis ? bestMoveArrow : null}
           lastMove={lastMove}
           flipped={flipped}
-          onAnimDone={() => setAnimBusy(false)}
+          onAnimDone={() => {
+            // 逐手回放链期间不解锁（链结束由 step 链统一解锁）
+            if (!replayActiveRef.current) setAnimBusyNow(false);
+          }}
           theme={boardTheme}
           turn={sandbox ? undefined : game.position.turn}
         />
@@ -710,6 +742,60 @@ export default function App() {
         )}
         {moveCheckMsg && (
           <div className="move-check-toast">{moveCheckMsg}</div>
+        )}
+        {showGameOver && game.gameOver && (
+          <div
+            className={`game-over-banner ${
+              game.gameOver.includes('红方胜')
+                ? 'red-win'
+                : game.gameOver.includes('黑方胜')
+                  ? 'black-win'
+                  : 'draw'
+            }`}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="game-over-particles" aria-hidden>
+              {Array.from({ length: 14 }).map((_, i) => {
+                const angle = (i / 14) * Math.PI * 2;
+                return (
+                  <span
+                    key={i}
+                    style={
+                      {
+                        '--dx': `${Math.cos(angle) * 66}px`,
+                        '--dy': `${Math.sin(angle) * 66}px`,
+                        '--delay': `${0.28 + i * 0.025}s`,
+                      } as React.CSSProperties
+                    }
+                  />
+                );
+              })}
+            </div>
+            <span className="game-over-piece">
+              {game.gameOver.includes('红方胜')
+                ? '帅'
+                : game.gameOver.includes('黑方胜')
+                  ? '将'
+                  : '和'}
+            </span>
+            <div className="game-over-title">{game.gameOver}</div>
+            <div className="game-over-sub">
+              {isCheckmate(game.position)
+                ? '绝杀'
+                : isStalemate(game.position)
+                  ? '困毙'
+                  : '和棋'} · 第 {Math.floor(game.moveHistory.length / 2) + 1} 回合
+            </div>
+            <div className="game-over-actions">
+              <button className="cancel" onClick={() => setShowGameOver(false)}>
+                取消
+              </button>
+              <button className="rematch" onClick={handleNewGame}>
+                再开一局
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </>
@@ -723,9 +809,6 @@ export default function App() {
           <span className={`turn-text ${game.position.turn === 'w' ? 'red' : 'black'}`}>
             {game.position.turn === 'w' ? '红方' : '黑方'}轮走
           </span>
-          {isInCheck(game.position) && (
-            <span className="status-badge check">将军！</span>
-          )}
           {(isCheckmate(game.position) || isStalemate(game.position)) && (
             <span className="status-badge mate">绝杀</span>
           )}
@@ -740,7 +823,7 @@ export default function App() {
         title="设置人机对战"
         disabled={sandbox}
       >
-        <span className="vs-title">人机对战</span>
+        <span className="vs-title">下棋模式</span>
         {computerSide && (
           <span className="vs-sub">
             电脑{computerSide === 'w' ? '执红' : '执黑'} · {DIFF_LABELS[difficulty]}
@@ -763,6 +846,13 @@ export default function App() {
           disabled={sandbox}
         >
           编辑局面
+        </button>
+        <button
+          className="toolbar-btn"
+          onClick={() => setXqpOpen(true)}
+          title="棋谱库：杀法与布局经典棋谱复盘"
+        >
+          📖 棋谱库
         </button>
         <button
           className={`toolbar-btn sandbox${sandbox ? ' active' : ''}`}
@@ -831,41 +921,65 @@ export default function App() {
     />
   );
 
-  // 走棋记录回退/前进：逐手回放（每一步都带滑动动画），含人机吸附的跨步，
-  // 所有移动的棋子逐手平滑过渡，不再瞬移
+  // 走棋记录回退/前进：导航步进（◀▶，animate=true）强制滑动动画并锁定（等位移结束才能再点）；
+  // 步进跨步（人机吸附）逐手回放，每一手都动画；列表点击非相邻跳转直接瞬移
   const historyTimerRef = useRef<number | null>(null);
-  const historyGoTo = (index: number) => {
+  // 逐手回放链进行中：链期间 onAnimDone 不解锁，防止链中断
+  const replayActiveRef = useRef(false);
+  const historyGoTo = (index: number, animate = false) => {
     const cur = game.currentIndex;
     if (index === cur) return;
-    if (historyTimerRef.current !== null) {
-      window.clearTimeout(historyTimerRef.current);
-      historyTimerRef.current = null;
+    if (animBusyRef.current) return; // 单步动画/回放链未结束，忽略本次点击
+    const adjacent = Math.abs(index - cur) === 1;
+    if (!animate && !adjacent) {
+      // 列表点击非相邻跳转：直接切到目标局面，不带动画
+      game.goToMove(index);
+      setLastMove(null);
+      setAnimBusyNow(false);
+      return;
     }
-    if (index < cur) {
-      // 回退：从当前最后一手开始，逐手反向动画回放
-      const step = (fromIdx: number) => {
-        if (fromIdx <= index) return; // 回放完毕，保留最后一手标记
-        const move = game.moveHistory[fromIdx];
-        if (!move) return;
-        game.goToMove(fromIdx - 1);
-        const mv = parseUciMove(move.uci);
-        setLastMove({ from: mv.to, to: mv.from });
-        historyTimerRef.current = window.setTimeout(() => step(fromIdx - 1), 500);
+    if (animate && !adjacent) {
+      // 步进跨步（人机吸附）：逐手回放，每手带滑动动画，链期间锁定
+      setAnimBusyNow(true);
+      replayActiveRef.current = true;
+      const step = (i: number) => {
+        const done = index < cur ? i <= index : i > index;
+        if (done) {
+          replayActiveRef.current = false;
+          setAnimBusyNow(false);
+          return;
+        }
+        const move = game.moveHistory[i];
+        if (!move) {
+          replayActiveRef.current = false;
+          setAnimBusyNow(false);
+          return;
+        }
+        if (index < cur) {
+          game.goToMove(i - 1);
+          const mv = parseUciMove(move.uci);
+          setLastMove({ from: mv.to, to: mv.from });
+        } else {
+          game.goToMove(i);
+          const mv = parseUciMove(move.uci);
+          setLastMove({ from: mv.from, to: mv.to });
+        }
+        historyTimerRef.current = window.setTimeout(
+          () => step(index < cur ? i - 1 : i + 1),
+          500,
+        );
       };
-      step(cur);
-    } else {
-      // 前进：从下一手开始，逐手正向动画回放
-      const step = (toIdx: number) => {
-        if (toIdx > index) return; // 回放完毕
-        const move = game.moveHistory[toIdx];
-        if (!move) return;
-        game.goToMove(toIdx);
-        const mv = parseUciMove(move.uci);
-        setLastMove({ from: mv.from, to: mv.to });
-        historyTimerRef.current = window.setTimeout(() => step(toIdx + 1), 500);
-      };
-      step(cur + 1);
+      step(index < cur ? cur : cur + 1);
+      return;
     }
+    // 相邻一步：带滑动动画（动画完成后 onAnimDone 解锁）
+    const animIdx = index < cur ? index + 1 : index;
+    const move = game.moveHistory[animIdx];
+    if (!move) return;
+    setAnimBusyNow(true);
+    game.goToMove(index);
+    const mv = parseUciMove(move.uci);
+    setLastMove(index < cur ? { from: mv.to, to: mv.from } : { from: mv.from, to: mv.to });
   };
 
   const historyPanel = (
@@ -911,6 +1025,15 @@ export default function App() {
           </div>
         </div>
         <div className="header-status">
+          {!isMobile && (
+            <button
+              className={`stack-view-btn${stackView ? ' active' : ''}`}
+              onClick={() => setStackView((v) => !v)}
+              title="棋盘大屏：功能栏纵向排列，棋盘最大化展示"
+            >
+              🖥 棋盘大屏
+            </button>
+          )}
           <span className={`engine-pill${engine.connected ? ' on' : ''}`} title="棋力引擎">
             <i className="engine-dot" />
             {engine.connected
@@ -921,10 +1044,13 @@ export default function App() {
       </header>
 
       <main className={`app-main${isMobile ? ' mobile' : ''}`}>
-        {editing ? (
+        {xqpOpen ? (
+          <XqpView onClose={() => setXqpOpen(false)} theme={boardTheme} />
+        ) : editing ? (
           <BoardEditor
             onConfirm={handleEditorConfirm}
             onCancel={() => setEditing(false)}
+            theme={boardTheme}
           />
         ) : isMobile ? (
           <>
@@ -935,9 +1061,6 @@ export default function App() {
                   <span className={`turn-text ${game.position.turn === 'w' ? 'red' : 'black'}`}>
                     {game.position.turn === 'w' ? '红方' : '黑方'}轮走
                   </span>
-                  {isInCheck(game.position) && (
-                    <span className="status-badge check">将军！</span>
-                  )}
                 </span>
                 <span className="round-badge">
                   第 {Math.floor(game.moveHistory.length / 2) + 1} 回合
@@ -947,13 +1070,11 @@ export default function App() {
                     fen={game.currentFen()}
                     gameOver={game.gameOver}
                     shallow={engine.shallow}
+                    computerTurn={computerThinking && !computerError}
                   />
                 )}
               </div>
               {boardArea}
-              {game.gameOver && (
-                <div className="game-over">{game.gameOver}</div>
-              )}
             </div>
             <div className="mobile-panel">
               {mobileTab === 'menu' && infoPanel}
@@ -990,13 +1111,10 @@ export default function App() {
             {dialogs}
           </>
         ) : (
-          <div className="play-layout">
+          <div className={`play-layout${stackView ? ' stack' : ''}`}>
             <div className="board-column">
               {boardArea}
               {coachPanel}
-              {game.gameOver && (
-                <div className="game-over">{game.gameOver}</div>
-              )}
             </div>
             <div className="side-column">
               {infoPanel}
@@ -1012,10 +1130,11 @@ export default function App() {
 }
 
 /** 移动端棋盘上方的实时胜率（紧凑条） */
-function MobileWinRate({ fen, gameOver, shallow }: {
+function MobileWinRate({ fen, gameOver, shallow, computerTurn }: {
   fen: string;
   gameOver: string | null;
   shallow: ShallowScore | null;
+  computerTurn: boolean;
 }) {
   const rates = gameOver
     ? terminalRates(gameOver)
@@ -1027,7 +1146,7 @@ function MobileWinRate({ fen, gameOver, shallow }: {
       {rates ? (
         <WinRateBar red={rates.red} draw={rates.draw} black={rates.black} compact />
       ) : (
-        <span className="mobile-winrate-empty">胜率分析中…</span>
+        <span className="mobile-winrate-empty">{computerTurn ? '电脑走棋中…' : '胜率分析中…'}</span>
       )}
     </div>
   );

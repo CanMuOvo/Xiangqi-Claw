@@ -37,7 +37,8 @@ interface Props {
   moves: MoveRecord[];
   currentIndex: number;
   startFen: string;
-  onGoTo: (index: number) => void;
+  /** animate=true：强制滑动动画（导航步进按钮，即使吸附跨步也动画）；默认 false 按相邻规则 */
+  onGoTo: (index: number, animate?: boolean) => void;
   /** 人机对战：上一步/下一步按整回合步进（撤掉我的棋 + 电脑应手） */
   stepByTurn?: boolean;
   humanIsRed?: boolean;
@@ -94,14 +95,14 @@ export default function MoveHistory({ moves, currentIndex, startFen, onGoTo, ste
           className="nav-btn"
           onClick={() => {
             if (!stepByTurn) {
-              onGoTo(Math.max(-1, currentIndex - 1));
+              onGoTo(Math.max(-1, currentIndex - 1), true);
             } else {
               const target = snapToHumanTurn(
                 Math.max(-1, currentIndex - 2),
                 humanIsRed,
                 moves.length - 1,
               );
-              onGoTo(target);
+              onGoTo(target, true);
             }
           }}
           disabled={disabled || currentIndex < 0}
@@ -113,14 +114,14 @@ export default function MoveHistory({ moves, currentIndex, startFen, onGoTo, ste
           className="nav-btn"
           onClick={() => {
             if (!stepByTurn) {
-              onGoTo(Math.min(moves.length - 1, currentIndex + 1));
+              onGoTo(Math.min(moves.length - 1, currentIndex + 1), true);
             } else {
               const target = snapToHumanTurn(
                 Math.min(moves.length - 1, currentIndex + 2),
                 humanIsRed,
                 moves.length - 1,
               );
-              onGoTo(target);
+              onGoTo(target, true);
             }
           }}
           disabled={disabled || currentIndex >= moves.length - 1}

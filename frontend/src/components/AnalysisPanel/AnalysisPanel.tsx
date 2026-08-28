@@ -156,7 +156,7 @@ export default function AnalysisPanel({ info, lines, analysing, connected, fen, 
         </div>
       )}
 
-      {/* 实时胜率区：旧数据持续展示，新数据到达后平滑过渡 */}
+      {/* 实时胜率区：旧数据持续展示（电脑走棋期间也不清空，保持面板高度），新数据到达后平滑过渡 */}
       {ratesEnabled && (
         <div className={`rates-section${ratesStale ? ' stale' : ''}`}>
           {!rates && connected && (

@@ -1,11 +1,12 @@
 .board-editor {
   display: grid;
-  grid-template-columns: minmax(400px, 620px) minmax(280px, 380px);
+  grid-template-columns: minmax(360px, 620px) minmax(280px, 380px);
   gap: 22px;
   align-items: start;
 }
 
-@media (max-width: 960px) {
+/* 窄窗口压缩双栏，<700px 才单栏（与 play-layout 断点一致） */
+@media (max-width: 700px) {
   .board-editor {
     grid-template-columns: 1fr;
   }
@@ -14,23 +15,20 @@
 .editor-board-area {
   display: flex;
   flex-direction: column;
+  /* 衬台：与主棋盘一致的实物摆放感 */
+  padding: 16px;
+  background:
+    linear-gradient(160deg, rgba(38, 48, 78, 0.55), rgba(14, 18, 30, 0.85) 70%),
+    var(--bg-1);
+  border: 1px solid var(--line-2);
+  border-radius: 18px;
+  box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
-/* 编辑棋盘配色：BoardEditor 不传主题，SVG 默认黑色，这里补齐经典木纹风 */
-.editor-board-area .board-bg {
-  fill: #2f2417;
-  stroke: #57442c;
-  stroke-width: 2;
-}
-
-.editor-board-area .board-surface {
-  fill: #eedcba;
-  stroke: #8b5a2b;
-  stroke-width: 1.5;
-}
-
-.editor-board-area .board-line {
-  stroke: #8b5a2b;
+/* 编辑器棋盘复用主题渲染（颜色/纹理由 theme 内联提供），此处只需衬台与棋子基础 */
+.editor-board-area .xiangqi-board {
+  width: 100%;
+  height: auto;
 }
 
 .editor-sidebar {
@@ -38,6 +36,10 @@
   flex-direction: column;
   gap: 14px;
   padding: 18px;
+  background: linear-gradient(170deg, rgba(26, 33, 52, 0.9), rgba(16, 21, 34, 0.95));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
   color: var(--ink);
 }
 
@@ -69,6 +71,15 @@
   line-height: 1.4;
 }
 
+/* 分区：棋子选择 / 设置 / FEN */
+.editor-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
 .piece-picker-group {
   display: flex;
   flex-direction: column;
@@ -83,45 +94,57 @@
 
 .picker-pieces {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
 .picker-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 9px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
   border: 2px solid transparent;
-  font-size: 18px;
+  font-size: 19px;
   font-weight: bold;
+  font-family: var(--serif);
   cursor: pointer;
   transition: all 0.15s;
-  background: var(--bg-2);
+  /* 迷你棋子：米白釉面 + 立体投影 */
+  background: radial-gradient(circle at 35% 28%, #fff9ea, #f7e3bd 58%, #e3c089);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35), inset 0 -3px 5px rgba(0, 0, 0, 0.12);
+  -webkit-tap-highlight-color: transparent;
 }
 
 .picker-btn.red {
   color: #991b1b;
+  border-color: rgba(153, 27, 27, 0.55);
 }
 
 .picker-btn.black {
   color: #1e3a5f;
+  border-color: rgba(30, 58, 95, 0.55);
 }
 
 .picker-btn.erase {
   font-size: 13px;
+  font-family: inherit;
   color: var(--ink-2);
+  border-radius: 9px;
+  background: var(--bg-2);
+  box-shadow: none;
+  border: 1px solid var(--line);
   width: auto;
-  padding: 0 14px;
+  padding: 0 16px;
 }
 
 .picker-btn:hover {
-  background: var(--bg-3);
+  transform: translateY(-1px);
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.4), inset 0 -3px 5px rgba(0, 0, 0, 0.12);
 }
 
 .picker-btn.selected {
   border-color: var(--gold);
-  background: rgba(200, 164, 92, 0.14);
-  box-shadow: 0 0 0 1px var(--gold);
+  box-shadow: 0 0 0 2px var(--gold), 0 3px 8px rgba(0, 0, 0, 0.35);
+  transform: scale(1.06);
 }
 
 .turn-select {
@@ -216,6 +239,12 @@
   cursor: not-allowed;
 }
 
+.fen-error {
+  margin: 0;
+  font-size: 12px;
+  color: #f3a6a2;
+}
+
 .editor-actions {
   display: flex;
   gap: 8px;
@@ -245,4 +274,22 @@
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--line);
   color: var(--ink);
+}
+
+/* 手机端：单栏布局 + 触控友好尺寸 */
+@media (max-width: 700px) {
+  .editor-sidebar {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .picker-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .editor-btn {
+    padding: 13px;
+    font-size: 15px;
+  }
 }

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Board as BoardType, PieceChar, Square } from '../../lib/fen';
 import { isRedPiece } from '../../lib/fen';
 import { BOARD_THEMES, type BoardTheme } from '../../lib/boardThemes';
@@ -34,7 +34,7 @@ interface Props {
 function toX(col: number) { return PAD + col * CELL; }
 function toY(row: number) { return PAD + row * CELL; }
 
-export default function Board({
+function Board({
   board,
   onMove,
   legalTargets,
@@ -47,12 +47,6 @@ export default function Board({
 }: Props) {
   const [selected, setSelected] = useState<Square | null>(null);
   const [targets, setTargets] = useState<Square[]>([]);
-  // 推演：棋盘上"画箭头"的编号步（from→to），双击箭头回撤
-  const [analysisMoves, setAnalysisMoves] = useState<{ from: Square; to: Square }[]>([]);
-  // 画线状态：按下起点格 + 当前指针位置（预览）
-  const [analysisLine, setAnalysisLine] = useState<{ from: Square; x: number; y: number } | null>(null);
-  // 按下记录：超过拖拽阈值才进入画线，与单击走棋区分
-  const [dragStart, setDragStart] = useState<{ sq: Square; x: number; y: number } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   // 走子滑动动画：rAF 逐帧插值
   const [anim, setAnim] = useState<{
@@ -77,6 +71,8 @@ export default function Board({
   }
   const onAnimDoneRef = useRef(onAnimDone);
   onAnimDoneRef.current = onAnimDone;
+  // 动画看门狗定时器（rAF 中断时强制完成动画，防 playingRef 卡死）
+  const watchdogRef = useRef<number | null>(null);
 
   const playNext = useCallback(() => {
     if (playingRef.current) return;
@@ -88,12 +84,30 @@ export default function Board({
     // 按走子距离定速（每格约 140ms，视觉速度恒定，避免长短距离看起来快慢不一）
     const dist = Math.hypot(to.row - from.row, to.col - from.col);
     const dur = Math.min(600, Math.max(200, dist * 140));
+    // 动画看门狗：rAF 被系统节流/中断（手机切后台、低功耗模式）时，
+    // playingRef 会一直卡 true，导致后续动画永远无法启动（表现为棋子瞬移）。
+    // 每帧续命，rAF 停止后超时强制完成并复位。
+    const armWatchdog = () => {
+      if (watchdogRef.current !== null) window.clearTimeout(watchdogRef.current);
+      watchdogRef.current = window.setTimeout(() => {
+        if (playingRef.current) {
+          playingRef.current = false;
+          animFinishedRef.current = true;
+          setAnim(null);
+          animQueueRef.current = [];
+          onAnimDoneRef.current?.();
+        }
+      }, 500);
+    };
     const tick = (now: number) => {
       const t = Math.min(1, (now - start) / dur);
       setAnim({ piece, from, to, t });
       if (t < 1) {
         rafRef.current = requestAnimationFrame(tick);
+        armWatchdog();
       } else {
+        if (watchdogRef.current !== null) window.clearTimeout(watchdogRef.current);
+        watchdogRef.current = null;
         setAnim(null);
         animFinishedRef.current = true; // 动画完成
         playingRef.current = false;
@@ -105,6 +119,7 @@ export default function Board({
     };
     // 同步设置初始帧（t=0）：局面已更新（目标格有子），若等 rAF 下一帧
     // 会有一整帧渲染 anim 为空 → 目标格棋子闪现一帧
+    armWatchdog();
     tick(start);
   }, []);
 
@@ -119,75 +134,14 @@ export default function Board({
     playNext();
   }, [lastMove, playNext]);
 
-  // 组件卸载时取消未完成的动画
-  useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
+  // 组件卸载时取消未完成的动画与看门狗
+  useEffect(() => {
+    cancelAnimationFrame(rafRef.current);
+    if (watchdogRef.current !== null) window.clearTimeout(watchdogRef.current);
+  }, []);
 
   const displayRow = (r: number) => flipped ? 9 - r : r;
   const displayCol = (c: number) => flipped ? 8 - c : c;
-
-  // 推演：撤掉第 index 步及之后的所有步（按编号顺序回撤）
-  const undoAnalysisFrom = useCallback((index: number) => {
-    setAnalysisMoves(prev => prev.slice(0, index));
-  }, []);
-
-  // 拖拽坐标：client 像素 → SVG viewBox 坐标
-  const toSvgPoint = (e: React.PointerEvent | React.MouseEvent): { x: number; y: number } => {
-    const rect = svgRef.current?.getBoundingClientRect();
-    if (!rect) return { x: 0, y: 0 };
-    return {
-      x: (e.clientX - rect.left) * (SVG_W / rect.width),
-      y: (e.clientY - rect.top) * (SVG_H / rect.height),
-    };
-  };
-
-  // 最近的棋盘格
-  const squareAt = (x: number, y: number): Square | null => {
-    let bestSq: Square | null = null;
-    let bestDist = Infinity;
-    for (let r = 0; r < 10; r++) {
-      for (let c = 0; c < 9; c++) {
-        const sx = toX(displayCol(c));
-        const sy = toY(displayRow(r));
-        const d = Math.hypot(x - sx, y - sy);
-        if (d < bestDist) { bestDist = d; bestSq = { row: r, col: c }; }
-      }
-    }
-    return bestDist < CELL * 0.7 ? bestSq : null;
-  };
-
-  // 画线推演：按住拖动（任意格起，超过阈值）进入画线；未拖动则走单击走棋
-  const handleBoardPointerDown = (e: React.PointerEvent) => {
-    const p = toSvgPoint(e);
-    const sq = squareAt(p.x, p.y);
-    if (!sq) return;
-    setDragStart({ sq, x: p.x, y: p.y });
-  };
-
-  const handleBoardPointerMove = (e: React.PointerEvent) => {
-    if (analysisLine) {
-      const p = toSvgPoint(e);
-      setAnalysisLine({ ...analysisLine, x: p.x, y: p.y });
-      return;
-    }
-    if (dragStart) {
-      const p = toSvgPoint(e);
-      if (Math.hypot(p.x - dragStart.x, p.y - dragStart.y) > 6) {
-        setAnalysisLine({ from: dragStart.sq, x: p.x, y: p.y });
-      }
-    }
-  };
-
-  const handleBoardPointerUp = (e: React.PointerEvent) => {
-    setDragStart(null);
-    if (!analysisLine) return;
-    const p = toSvgPoint(e);
-    const end = squareAt(p.x, p.y);
-    if (end && !(end.row === analysisLine.from.row && end.col === analysisLine.from.col)) {
-      // 拖动到另一格 → 推演一步（编号箭头），棋子不动
-      setAnalysisMoves(prev => [...prev, { from: analysisLine.from, to: end }]);
-    }
-    setAnalysisLine(null);
-  };
 
   const handleClick = useCallback(
     (row: number, col: number) => {
@@ -208,7 +162,6 @@ export default function Board({
         if (onMove) onMove(selected, { row, col });
         setSelected(null);
         setTargets([]);
-        setAnalysisMoves([]); // 真实走棋：推演箭头失去意义，清除
       } else if (piece && (!turn || isRedPiece(piece) === (turn === 'w'))) {
         // 只能抬起当前轮走方自己的棋子
         setSelected({ row, col });
@@ -413,9 +366,13 @@ export default function Board({
       for (let c = 0; c < 9; c++) {
         const piece = board[r][c];
         if (!piece) continue;
-        // 走棋动画期间（lastMove 存在、动画未完成）：落点静止棋子永不渲染
-        // （直接按 lastMove 判定，不依赖 anim/派生 的时序）——动画完成后落点正常显示
-        if (lastMove && !animFinishedRef.current && lastMove.to.row === r && lastMove.to.col === c) continue;
+        // 走棋动画期间：当前动画的落点静止棋子不渲染（避免"静止棋子+插值棋子"重叠闪现）。
+        // 用 effectiveAnim.to（实际播放中的动画落点）而非 lastMove.to——
+        // 动画排队时（逐手回放/连续走子）lastMove 已指向新一步，旧动画落点会提前显形
+        if (!animFinishedRef.current) {
+          const hideTo = effectiveAnim?.to ?? lastMove?.to;
+          if (hideTo && hideTo.row === r && hideTo.col === c) continue;
+        }
 
         const x = toX(displayCol(c));
         const y = toY(displayRow(r));
@@ -508,98 +465,12 @@ export default function Board({
     return rects;
   };
 
-  // 推演编号箭头：橙色箭头 + 落点数字，双击箭头回撤该步及后续（按顺序）
-  const renderAnalysisArrows = () => {
-    if (analysisMoves.length === 0) return null;
-    return analysisMoves.map((m, i) => {
-      const x1 = toX(displayCol(m.from.col));
-      const y1 = toY(displayRow(m.from.row));
-      const x2 = toX(displayCol(m.to.col));
-      const y2 = toY(displayRow(m.to.row));
-      const dx = x2 - x1;
-      const dy = y2 - y1;
-      const len = Math.hypot(dx, dy);
-      if (len === 0) return null;
-      const ux = dx / len;
-      const uy = dy / len;
-      const startHasPiece = board[m.from.row][m.from.col] !== null;
-      // 空格起点：线从起始圆球中心出发（圆球后画盖住线头）；棋子起点：线从棋子边缘出发
-      const startOff = startHasPiece ? CELL * 0.52 : 0;
-      const endOff = CELL * 0.4;
-      const sx = x1 + ux * startOff;
-      const sy = y1 + uy * startOff;
-      const ex = x2 - ux * endOff;
-      const ey = y2 - uy * endOff;
-      const headLen = CELL * 0.34;
-      const headHalf = CELL * 0.22;
-      const px = -uy;
-      const py = ux;
-      const tip = `${x2},${y2}`;
-      const bx = x2 - ux * headLen;
-      const by = y2 - uy * headLen;
-      const b1 = `${bx + px * headHalf},${by + py * headHalf}`;
-      const b2 = `${bx - px * headHalf},${by - py * headHalf}`;
-      // 编号圆底在箭头“菱形”中心（底边中点）：落点正中心留给“空格起点”的起始圆球
-      const mx = bx;
-      const my = by;
-      return (
-        <g key={`an${i}`} className="analysis-arrow" onDoubleClick={() => undoAnalysisFrom(i)}>
-          <line
-            x1={sx} y1={sy} x2={ex} y2={ey}
-            stroke="#f97316" strokeWidth="3.5" opacity="0.85"
-            strokeLinecap="round"
-          />
-          <polygon points={`${tip} ${b1} ${b2}`} fill="#f97316" opacity="0.9" />
-          <circle cx={mx} cy={my} r={10} className="analysis-num-bg" />
-          <text x={mx} y={my}
-            className="analysis-num"
-            textAnchor="middle" dominantBaseline="central"
-            fontSize={12} fontWeight="bold"
-          >
-            {i + 1}
-          </text>
-          {!startHasPiece && (
-            <circle
-              cx={x1} cy={y1} r={CELL * 0.12}
-              fill="#f97316" opacity="0.85" stroke="#ffffff" strokeWidth="1.5"
-            />
-          )}
-        </g>
-      );
-    });
-  };
-
-  // 推演画线中的预览线（起点 → 当前指针，虚线；空格起点时带小圆球锚点）
-  const renderAnalysisPreview = () => {
-    if (!analysisLine) return null;
-    const x1 = toX(displayCol(analysisLine.from.col));
-    const y1 = toY(displayRow(analysisLine.from.row));
-    const hasPiece = board[analysisLine.from.row][analysisLine.from.col] !== null;
-    return (
-      <g style={{ pointerEvents: 'none' }}>
-        <line
-          x1={x1} y1={y1} x2={analysisLine.x} y2={analysisLine.y}
-          stroke="#f97316" strokeWidth="3" opacity="0.55"
-          strokeLinecap="round" strokeDasharray="6 4"
-        />
-        {!hasPiece && (
-          <circle
-            cx={x1} cy={y1} r={CELL * 0.12}
-            fill="#f97316" opacity="0.85" stroke="#ffffff" strokeWidth="1.5"
-          />
-        )}
-      </g>
-    );
-  };
-
+  // 推演编号箭头：已移除（沙盘推演替代）
   return (
     <svg
       ref={svgRef}
       viewBox={`0 0 ${SVG_W} ${SVG_H}`}
       className="xiangqi-board"
-      onPointerDown={handleBoardPointerDown}
-      onPointerMove={handleBoardPointerMove}
-      onPointerUp={handleBoardPointerUp}
     >
       <defs>
         <linearGradient id="wood-grad" x1="0" y1="0" x2="1" y2="1">
@@ -656,9 +527,11 @@ export default function Board({
       {renderClickTargets()}
       {renderPieces()}
       {renderArrow()}
-      {renderAnalysisArrows()}
-      {renderAnalysisPreview()}
       {renderAnimPiece()}
     </svg>
   );
 }
+
+// memo：动画播放期间父组件重渲染（如 WS 分析消息）时，棋盘 props 未变则跳过重渲染，
+// 保住动画帧率（手机端尤其关键——XqpView 与走棋记录/分析面板同屏）
+export default memo(Board);

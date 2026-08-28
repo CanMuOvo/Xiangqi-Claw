@@ -1,0 +1,319 @@
+.xqp-view {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: calc(100vh - 130px);
+}
+
+/* 顶栏 */
+.xqp-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.xqp-back {
+  padding: 8px 16px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink-2);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.xqp-back:hover {
+  background: rgba(200, 164, 92, 0.1);
+  border-color: rgba(200, 164, 92, 0.4);
+  color: var(--gold-2);
+}
+
+.xqp-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  font-family: var(--serif);
+  color: var(--gold-2);
+  letter-spacing: 0.1em;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.xqp-current {
+  font-size: 13px;
+  color: var(--ink-2);
+  letter-spacing: 0.04em;
+  font-family: var(--sans);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* 顶栏空间充足：棋谱名完整显示，不主动截断（极端超长才省略兜底） */
+  flex: 1;
+}
+
+.xqp-header-spacer {
+  flex: 1;
+}
+
+/* 主布局：棋盘 + 侧栏 */
+.xqp-layout {
+  display: grid;
+  grid-template-columns: minmax(380px, 620px) minmax(300px, 400px);
+  gap: 22px;
+  align-items: start;
+}
+
+@media (max-width: 700px) {
+  .xqp-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.xqp-board-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.xqp-board-col .board-wrap {
+  width: 100%;
+}
+
+/* 复盘控制条 */
+.xqp-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: linear-gradient(160deg, rgba(38, 48, 78, 0.92), rgba(16, 21, 34, 0.96));
+  border: 1px solid rgba(130, 168, 220, 0.4);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+
+.xqp-btn {
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.xqp-btn:hover:not(:disabled) {
+  background: rgba(200, 164, 92, 0.1);
+  border-color: rgba(200, 164, 92, 0.45);
+}
+
+.xqp-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.xqp-btn.auto.on {
+  background: rgba(77, 157, 124, 0.18);
+  border-color: var(--jade);
+  color: #7fc4a6;
+}
+
+.xqp-progress {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.xqp-progress input[type='range'] {
+  flex: 1;
+  accent-color: var(--jade);
+  min-width: 60px;
+}
+
+.xqp-progress-text {
+  font-size: 12px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+/* 侧栏 */
+.xqp-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  background: linear-gradient(170deg, rgba(26, 33, 52, 0.9), rgba(16, 21, 34, 0.95));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+
+.xqp-crumb-up {
+  align-self: flex-start;
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.xqp-crumb-up:hover {
+  background: rgba(200, 164, 92, 0.1);
+  color: var(--gold-2);
+  border-color: rgba(200, 164, 92, 0.4);
+}
+
+.xqp-search {
+  padding: 8px 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 13px;
+  outline: none;
+}
+
+.xqp-search:focus {
+  border-color: var(--gold);
+}
+
+.xqp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.xqp-cat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--ink);
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.xqp-cat.sub {
+  padding-left: 24px;
+}
+
+.xqp-cat:hover {
+  background: rgba(200, 164, 92, 0.08);
+  border-color: rgba(200, 164, 92, 0.4);
+}
+
+.xqp-cat-name {
+  font-weight: 600;
+}
+
+.xqp-cat-count {
+  font-size: 12px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.xqp-book {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.xqp-book:hover {
+  background: rgba(77, 157, 124, 0.08);
+  border-color: rgba(77, 157, 124, 0.35);
+  color: var(--ink);
+}
+
+.xqp-book.active {
+  background: rgba(77, 157, 124, 0.14);
+  border-color: var(--jade);
+  color: var(--ink);
+}
+
+.xqp-book-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xqp-book-result {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.xqp-book-result.r-red { color: #e8837f; }
+.xqp-book-result.r-black { color: #8fb5e8; }
+.xqp-book-result.r-draw { color: var(--ink-3); }
+
+.xqp-book-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(130, 168, 220, 0.35);
+  border-radius: 9px;
+  background: rgba(130, 168, 220, 0.06);
+  font-family: var(--serif);
+  font-size: 13px;
+  font-weight: 700;
+  color: #b8cdf0;
+}
+
+.xqp-book-head .xqp-book-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 复盘走棋记录容器 */
+.xqp-records {
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.xqp-empty {
+  margin: 12px 0;
+  font-size: 13px;
+  color: var(--ink-3);
+  text-align: center;
+}
+
+@media (max-width: 700px) {
+  .xqp-title {
+    font-size: 15px;
+  }
+
+  .xqp-current {
+    max-width: 45%;
+  }
+}
