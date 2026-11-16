@@ -18,6 +18,10 @@
   --radius: 14px;
   --serif: 'Noto Serif SC', 'Songti SC', 'SimSun', 'STSong', serif;
   --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.35);
+  /* 字号全局倍率：各组件 font-size 统一写成 calc(Npx * var(--fs-scale))。
+     默认 1 与原先逐像素一致，只在大屏/矮屏断点里调这一个值
+     （宽屏放大字号，矮屏略微收小，见 App.css 的分档） */
+  --fs-scale: 1;
 }
 
 *,

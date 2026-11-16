@@ -18,8 +18,7 @@
 
 .move-history-header h3 {
   margin: 0;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: calc(15px * var(--fs-scale));  font-weight: 600;
   color: var(--gold-2);
   letter-spacing: 0.08em;
   position: relative;
@@ -49,8 +48,7 @@
   border-radius: 7px;
   color: var(--ink-2);
   cursor: pointer;
-  font-size: 12px;
-  transition: all 0.15s;
+  font-size: calc(12px * var(--fs-scale));  transition: all 0.15s;
 }
 
 .nav-btn:hover:not(:disabled) {
@@ -80,8 +78,7 @@
 
 .no-moves {
   color: var(--ink-3);
-  font-size: 14px;
-  text-align: center;
+  font-size: calc(14px * var(--fs-scale));  text-align: center;
   padding: 20px 0;
   margin: 0;
 }
@@ -96,8 +93,7 @@
 .move-number {
   width: 28px;
   color: var(--ink-3);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
+  font-size: calc(13px * var(--fs-scale));  font-variant-numeric: tabular-nums;
   text-align: right;
   flex-shrink: 0;
   font-family: var(--serif);
@@ -107,8 +103,7 @@
   flex: 1;
   padding: 3px 8px;
   border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
+  font-size: calc(14px * var(--fs-scale));  cursor: pointer;
   transition: background 0.15s;
   text-align: left;
   white-space: nowrap;
@@ -132,10 +127,12 @@
   margin-left: 2px;
   font-weight: 700;
   font-style: normal;
-  font-size: 12px;
-  line-height: 1;
+  font-size: calc(12px * var(--fs-scale));  line-height: 1;
 }
 
 .mv-flag.cap { color: var(--gold-2); }
 .mv-flag.check { color: #f3a6a2; }
 .mv-flag.mate { color: #f3a6a2; }
+/* 走棋质量：好棋金色、妙手翡翠色，与战术标记（红系）区分 */
+.mv-flag.good { color: var(--gold-2); }
+.mv-flag.great { color: #7fc4a6; }

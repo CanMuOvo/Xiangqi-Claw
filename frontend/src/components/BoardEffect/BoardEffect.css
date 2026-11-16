@@ -9,8 +9,9 @@
 }
 
 .effect-img {
-  max-width: 32%;
-  max-height: 42%;
+  /* 相对棋盘容器按比例显示：22% 宽 / 26% 高（原为 32% / 42%，偏大） */
+  max-width: 22%;
+  max-height: 26%;
   animation: effect-pop 1.3s ease-out forwards;
   filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.55));
 }
@@ -25,3 +26,4 @@
   70% { opacity: 1; transform: scale(1); }
   100% { opacity: 0; transform: scale(1.04); }
 }
+

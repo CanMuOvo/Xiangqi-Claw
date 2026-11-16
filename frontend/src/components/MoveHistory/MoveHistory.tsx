@@ -44,6 +44,8 @@ interface Props {
   humanIsRed?: boolean;
   /** 禁用交互（如沙盘演示中，避免点击干扰自动推演） */
   disabled?: boolean;
+  /** 走棋质量徽章：键为走棋记录下标，好棋 / 妙手（人机对战 + 走棋提醒开启时才有） */
+  goodMoves?: Record<number, 'good' | 'great'>;
 }
 
 /** 第 index 手之后的局面是否轮到人类走棋（index=-1 为开局） */
@@ -64,7 +66,7 @@ function snapToHumanTurn(index: number, humanIsRed: boolean, maxIndex: number): 
   return index;
 }
 
-export default function MoveHistory({ moves, currentIndex, startFen, onGoTo, stepByTurn = false, humanIsRed = true, disabled = false }: Props) {
+export default function MoveHistory({ moves, currentIndex, startFen, onGoTo, stepByTurn = false, humanIsRed = true, disabled = false, goodMoves }: Props) {
   const pairs: { index: number; red: MoveRecord; black?: MoveRecord }[] = [];
 
   for (let i = 0; i < moves.length; i += 2) {
@@ -152,6 +154,7 @@ export default function MoveHistory({ moves, currentIndex, startFen, onGoTo, ste
             >
               {uciToChineseNotation(red.uci, getFenBefore(index))}
               <MoveFlags marks={analyzeMove(getFenBefore(index), red.uci)} />
+              <QualityFlag tier={goodMoves?.[index]} />
             </span>
             {black && (
               <span
@@ -160,12 +163,23 @@ export default function MoveHistory({ moves, currentIndex, startFen, onGoTo, ste
               >
                 {uciToChineseNotation(black.uci, getFenBefore(index + 1))}
                 <MoveFlags marks={analyzeMove(getFenBefore(index + 1), black.uci)} />
+                <QualityFlag tier={goodMoves?.[index + 1]} />
               </span>
             )}
           </div>
         ))}
       </div>
     </div>
+  );
+}
+
+/** 走棋质量徽章：好棋 / 妙手（由走棋提醒的引擎比对得出） */
+function QualityFlag({ tier }: { tier?: 'good' | 'great' }) {
+  if (!tier) return null;
+  return (
+    <span className={`mv-flag ${tier}`} title={tier === 'great' ? '追上或优于引擎最佳' : '接近引擎最佳'}>
+      {tier === 'great' ? '妙手' : '好棋'}
+    </span>
   );
 }
 

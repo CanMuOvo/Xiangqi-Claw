@@ -66,13 +66,6 @@ export function useGame(defaultFen: string = STARTING_FEN) {
       setMoveHistory(newHistory);
       setCurrentIndex(newHistory.length - 1);
 
-      // 重复局面：同一局面第 3 次出现 → 双方不变作和
-      const repeatCount = newHistory.filter((m) => m.fen === fen).length;
-      if (repeatCount >= 3) {
-        setGameOver('和棋（重复局面）');
-        return true;
-      }
-
       // 中国象棋：将死或困毙（无合法走法）均为判负，不是和棋
       if (isCheckmate(newPos) || isStalemate(newPos)) {
         setGameOver(newPos.turn === 'w' ? '黑方胜' : '红方胜');

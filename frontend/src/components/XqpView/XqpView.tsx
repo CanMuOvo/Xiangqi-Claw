@@ -16,6 +16,11 @@ export interface Book {
   moves: string[];
 }
 
+/** 导出到主对局的棋谱：Book 结构 + 当前复盘到的步数（棋盘停在这一步） */
+export interface ExportBook extends Book {
+  index: number;
+}
+
 export interface Category {
   name: string;
   subs?: Category[];
@@ -36,9 +41,11 @@ const RESULT_CN: Record<string, string> = {
 interface Props {
   onClose: () => void;
   theme: BoardTheme;
+  /** 把当前局面与整份棋谱走法送到主对局继续下棋（会替换主对局） */
+  onExportToGame?: (book: ExportBook) => void;
 }
 
-export default function XqpView({ onClose, theme }: Props) {
+export default function XqpView({ onClose, theme, onExportToGame }: Props) {
   const [data, setData] = useState<XqpData | null>(null);
   const [catPath, setCatPath] = useState<Category[]>([]);
   const [book, setBook] = useState<Book | null>(null);
@@ -256,6 +263,15 @@ export default function XqpView({ onClose, theme }: Props) {
                 <span className={`xqp-book-result r-${book.result === '1-0' ? 'red' : book.result === '0-1' ? 'black' : 'draw'}`}>
                   {RESULT_CN[book.result] ?? ''}
                 </span>
+                {onExportToGame && (
+                  <button
+                    className="xqp-export"
+                    onClick={() => onExportToGame({ ...book, index })}
+                    title="把当前局面和整份棋谱走法送到主对局，可继续下棋或编辑局面（会替换当前对局）"
+                  >
+                    📤 导出到对局
+                  </button>
+                )}
               </div>
               <div className="xqp-records">
                 <MoveHistory

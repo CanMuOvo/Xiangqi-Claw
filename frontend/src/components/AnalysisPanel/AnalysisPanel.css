@@ -28,8 +28,7 @@
 
 .analysis-header h3 {
   margin: 0;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: calc(15px * var(--fs-scale));  font-weight: 600;
   color: var(--gold-2);
   letter-spacing: 0.08em;
   position: relative;
@@ -52,8 +51,7 @@
   align-items: center;
   gap: 4px;
   margin-left: auto;
-  font-size: 13px;
-  color: var(--ink-2);
+  font-size: calc(13px * var(--fs-scale));  color: var(--ink-2);
   cursor: pointer;
   user-select: none;
 }
@@ -89,7 +87,7 @@
 
 .analysis-status {
   color: var(--ink-2);
-  font-size: 14px;
+  font-size: calc(14px * var(--fs-scale));
 }
 
 .analysis-status.thinking {
@@ -140,8 +138,7 @@
 }
 
 .rank-badge {
-  font-size: 13px;
-  color: var(--ink-3);
+  font-size: calc(13px * var(--fs-scale));  color: var(--ink-3);
   flex-shrink: 0;
   width: 18px;
   text-align: center;
@@ -153,8 +150,7 @@
 
 .tl-move {
   font-family: var(--serif);
-  font-size: 15px;
-  font-weight: 700;
+  font-size: calc(15px * var(--fs-scale));  font-weight: 700;
   flex-shrink: 0;
 }
 
@@ -166,8 +162,7 @@
 }
 
 .tl-score {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: calc(13px * var(--fs-scale));  font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
   flex-shrink: 0;
@@ -179,8 +174,7 @@
 
 .tl-depth {
   margin-left: auto;
-  font-size: 11px;
-  color: var(--ink-3);
+  font-size: calc(11px * var(--fs-scale));  color: var(--ink-3);
   flex-shrink: 0;
 }
 
@@ -192,8 +186,7 @@
   }
 
   .tl-move {
-    font-size: 14px;
-  }
+    font-size: calc(14px * var(--fs-scale));  }
 
   .tl-depth {
     display: none;
@@ -228,8 +221,7 @@
   position: absolute;
   top: 0;
   right: 0;
-  font-size: 11px;
-  color: var(--gold-2);
+  font-size: calc(11px * var(--fs-scale));  color: var(--gold-2);
   background: rgba(200, 164, 92, 0.12);
   border: 1px solid rgba(200, 164, 92, 0.4);
   border-radius: 999px;
@@ -248,8 +240,7 @@
 }
 
 .score-value {
-  font-size: 28px;
-  font-weight: 700;
+  font-size: calc(28px * var(--fs-scale));  font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--gold-2);
   font-family: var(--serif);
@@ -260,14 +251,12 @@
   color: var(--ink-2);
   padding: 2px 8px;
   border-radius: 4px;
-  font-size: 12px;
-  border: 1px solid var(--line);
+  font-size: calc(12px * var(--fs-scale));  border: 1px solid var(--line);
 }
 
 /* 分数含义说明 */
 .score-hint {
-  font-size: 11px;
-  color: var(--ink-3);
+  font-size: calc(11px * var(--fs-scale));  color: var(--ink-3);
   margin-left: auto;
   cursor: help;
   white-space: nowrap;
@@ -282,14 +271,13 @@
 
 .pv-label {
   color: var(--ink-2);
-  font-size: 13px;
+  font-size: calc(13px * var(--fs-scale));
 }
 
 .pv-moves {
   color: var(--ink);
   font-family: 'Menlo', 'Consolas', monospace;
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: calc(12px * var(--fs-scale));  line-height: 1.5;
   word-break: break-all;
 }
 
@@ -300,8 +288,7 @@
 .engine-stats {
   display: flex;
   gap: 16px;
-  font-size: 12px;
-  color: var(--ink-3);
+  font-size: calc(12px * var(--fs-scale));  color: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
 
@@ -326,12 +313,11 @@
 
 .best-label {
   color: var(--ink-2);
-  font-size: 14px;
+  font-size: calc(14px * var(--fs-scale));
 }
 
 .best-move {
-  font-size: 18px;
-  font-weight: 600;
+  font-size: calc(18px * var(--fs-scale));  font-weight: 600;
   color: var(--gold-2);
   font-family: var(--serif);
 }
@@ -369,8 +355,7 @@
 .winrate-labels.compact {
   display: flex;
   justify-content: space-between;
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
+  font-size: calc(10px * var(--fs-scale));  font-variant-numeric: tabular-nums;
   color: var(--ink-3);
 }
 
@@ -402,8 +387,7 @@
 }
 
 .wr-num {
-  font-size: 16px;
-  font-weight: 700;
+  font-size: calc(16px * var(--fs-scale));  font-weight: 700;
   font-family: var(--serif);
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -411,8 +395,7 @@
 }
 
 .wr-name {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: calc(13px * var(--fs-scale));  font-weight: 500;
   letter-spacing: 0.02em;
 }
 

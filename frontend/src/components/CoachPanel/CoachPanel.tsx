@@ -29,33 +29,10 @@ export default function CoachPanel({
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  // 已展开的长消息索引（默认折叠超长回复，避免撑爆对话区）
-  const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
   const fenRef = useRef(fen);
   // 当前局面在对话列表中的起始索引：换局面后只把新局面的对话发给 AI
   const sessionStartRef = useRef(0);
   const listRef = useRef<HTMLDivElement>(null);
-
-  // 估算内容是否超长：按消息宽度约 16 字符/行折算总行数
-  const isLongContent = (content: string): boolean => {
-    let total = 0;
-    for (const line of content.split('\n')) {
-      total += Math.max(1, Math.ceil(line.length / 16));
-    }
-    return total > 6;
-  };
-
-  const toggleExpand = (i: number) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(i)) {
-        next.delete(i);
-      } else {
-        next.add(i);
-      }
-      return next;
-    });
-  };
 
   // 识别走法片段：中文数字（一二三）= 红方走法，阿拉伯数字（1-9）= 黑方走法
   const renderMoves = (text: string, keyStart: number): React.ReactNode[] => {
@@ -197,14 +174,7 @@ export default function CoachPanel({
             <div key={i} className={`coach-msg ${m.role}`}>
               <span className="coach-msg-label">{m.role === 'user' ? '你' : '教练'}</span>
               <div className="coach-msg-body">
-                <div className={`coach-msg-content${isLongContent(m.content) && !expanded.has(i) ? ' clamped' : ''}`}>
-                  {renderContent(m.content)}
-                </div>
-                {isLongContent(m.content) && (
-                  <button className="coach-expand" onClick={() => toggleExpand(i)}>
-                    {expanded.has(i) ? '收起 ▴' : '展开全部 ▾'}
-                  </button>
-                )}
+                <div className="coach-msg-content">{renderContent(m.content)}</div>
                 {m.role === 'assistant' && m.sandboxMoves && m.sandboxMoves.length > 0 && m.fen === fen && (
                   <button className="coach-demo" onClick={() => onDemoMoves?.(m.sandboxMoves!)}>
                     ▶ 沙盘演示推演

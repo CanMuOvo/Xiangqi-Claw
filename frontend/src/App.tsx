@@ -8,7 +8,7 @@ import { VsComputerDialog } from './components/VsComputerDialog';
 import type { VsSide } from './components/VsComputerDialog';
 import { BoardEffect } from './components/BoardEffect';
 import { BoardThemeDialog } from './components/BoardThemeDialog';
-import { XqpView } from './components/XqpView';
+import { XqpView, type ExportBook } from './components/XqpView';
 import { BOARD_THEMES } from './lib/boardThemes';
 import { useGame } from './hooks/useGame';
 import { useEngine, type ShallowScore } from './hooks/useEngine';
@@ -46,6 +46,7 @@ const MAX_VIABLE_GAP = 150;
 function pickMove(
   data: { best_move?: string; lines?: { pv?: string[]; score_cp?: number }[] },
   level: Difficulty,
+  avoid?: (move: string) => boolean,
 ): string | undefined {
   const candidates = (data.lines ?? [])
     .map((l) => ({ move: l.pv?.[0], score: l.score_cp ?? 0 }))
@@ -59,18 +60,24 @@ function pickMove(
   const bestScore = candidates[0].score;
   const viable = candidates.filter((c) => bestScore - c.score <= MAX_VIABLE_GAP);
   const moves = (viable.length > 0 ? viable : [candidates[0]]).map((c) => c.move);
+  // 电脑策略：avoid 指定时排除该走法（如"导致重复局面判和的循环连将"），
+  // 从其余候选里选；全部被排除则回退原候选（无法避免时只能如此）
+  const pool = avoid ? moves.filter((m) => !avoid(m)) : moves;
+  const use = pool.length > 0 ? pool : moves;
 
   if (level === 'easy') {
     // 入门：浅思考（depth 4）+ 60/30/10
     const r = Math.random();
-    return r < 0.6 ? moves[0] : r < 0.9 ? (moves[1] ?? moves[0]) : (moves[2] ?? moves[0]);
+    return r < 0.6 ? use[0] : r < 0.9 ? (use[1] ?? use[0]) : (use[2] ?? use[0]);
   }
 
   const r = Math.random();
-  return r < 0.5 ? moves[0] : r < 0.8 ? (moves[1] ?? moves[0]) : (moves[2] ?? moves[0]);
+  return r < 0.5 ? use[0] : r < 0.8 ? (use[1] ?? use[0]) : (use[2] ?? use[0]);
 }
 
 const SAVE_KEY = 'xiangqi-claw-save';
+// 棋谱库「导出到对局」的棋谱（与 public/data/xqp.json 的 Book 同构），只存浏览器本地
+const XQP_EXPORT_KEY = 'xiangqi-claw-xqp-export';
 
 interface SavedGameState {
   moves: string[];
@@ -115,7 +122,11 @@ export default function App() {
   const [isMobile, setIsMobile] = useState(() => window.matchMedia(MOBILE_QUERY).matches);
   // 走棋提醒：每步与最优解差距超阈值时提示（学习辅助）
   const [moveCheck, setMoveCheck] = useState(false);
-  const [moveCheckMsg, setMoveCheckMsg] = useState<string | null>(null);
+  // 走棋质量提示（漏招 / 好棋 / 妙手）：与走棋记录徽章同源，共用一套卡片样式
+  const [moveCheckMsg, setMoveCheckMsg] = useState<{
+    kind: 'blunder' | 'good' | 'great';
+    text: string;
+  } | null>(null);
   const bestRef = useRef<{ fen: string; turn: 'w' | 'b'; score: number } | null>(null);
   const moveCheckTimerRef = useRef<number | null>(null);
   const [mobileTab, setMobileTab] = useState<'menu' | 'coach' | 'analysis' | 'history'>('menu');
@@ -224,7 +235,7 @@ export default function App() {
   }, []);
   // 新开局计数器：变化时重挂载 CoachPanel 清空对话
   const [newGameNonce, setNewGameNonce] = useState(0);
-  // 棋盘中央文字特效（吃子/将军/绝杀）
+  // 棋盘中央特效（战术事件：吃子/将军/绝杀；走棋质量提示走 .move-check-toast 卡片）
   const [boardEffect, setBoardEffect] = useState<{
     text: string;
     kind: 'check' | 'capture' | 'mate';
@@ -232,6 +243,8 @@ export default function App() {
   } | null>(null);
   const effectKeyRef = useRef(0);
   const effectTimerRef = useRef<number | null>(null);
+  // 走棋质量徽章：按走棋记录的下标记「好棋/妙手」（人机对战 + 走棋提醒开启时才记录）
+  const [goodMoves, setGoodMoves] = useState<Record<number, 'good' | 'great'>>({});
   const computerBusy = useRef(false);
   const computerSideRef = useRef(computerSide);
   const positionRef = useRef(game.position);
@@ -376,7 +389,8 @@ export default function App() {
   useEffect(() => {
     if (editing || game.gameOver) return;
     if (demoMoves) return; // 沙盘自动演示中暂停引擎分析
-    if (computerSide && game.position.turn === computerSide) return; // 电脑回合不做分析
+    // 电脑回合不做分析；沙盘模式下双方都由玩家控制，红黑都分析
+    if (!sandbox && computerSide && game.position.turn === computerSide) return;
     if (!showAnalysis || !engine.connected) return;
     const fen = game.currentFen();
     // 防抖 400ms：快速回退/走棋时只分析停稳后的最新局面，避免引擎排队卡死
@@ -430,7 +444,16 @@ export default function App() {
     })
       .then((r) => r.json())
       .then((data) => {
-        let best = pickMove(data, difficulty);
+        // 电脑策略：不走会导致「重复局面第 3 次出现」的走法（循环连将/长将僵局），
+        // 从其余候选里选——避免电脑认为连将最优就一直下将军导致棋局无法进行
+        const leadsToRepeatDraw = (move: string): boolean => {
+          const { from, to } = parseUciMove(move);
+          const next = applyMove(positionRef.current, from, to);
+          const fenAfter = toFen(next);
+          // 该局面在走棋记录中已出现 >=2 次，再走就是第 3 次 → 判和
+          return game.moveHistory.filter((h) => h.fen === fenAfter).length >= 2;
+        };
+        let best = pickMove(data, difficulty, leadsToRepeatDraw);
         if (best && !/^[a-i][0-9][a-i][0-9]$/.test(best)) best = undefined;
         // 像人类一样：思考完成后停顿一下再落子
         setTimeout(() => {
@@ -481,8 +504,23 @@ export default function App() {
   const handleBoardMove = useCallback(
     (from: Square, to: Square): boolean => {
       const before = game.position;
+      // 这一手在走棋记录里的下标：回退后再走棋会截断后续手，所以是 currentIndex + 1
+      const moveIndex = game.currentIndex + 1;
       const ok = game.tryMove(from, to);
       if (ok) {
+        // 新走棋截断了该下标之后的历史：清掉那些手的好棋/妙手徽章
+        setGoodMoves((prev) => {
+          const keys = Object.keys(prev);
+          if (keys.length === 0) return prev;
+          const next: Record<number, 'good' | 'great'> = {};
+          let changed = false;
+          for (const k of keys) {
+            const idx = Number(k);
+            if (idx < moveIndex) next[idx] = prev[idx];
+            else changed = true;
+          }
+          return changed ? next : prev;
+        });
         setAnimBusyNow(true);
         triggerMoveEffects(before, from, to);
         setLastMove({ from, to });
@@ -517,10 +555,24 @@ export default function App() {
                 if (afterCp === undefined) return; // 分析失败，跳过本次检测
                 const myScore = -afterCp; // 走棋方视角（走棋后轮到对方）
                 const gap = (bestScore as number) - myScore;
+                // 漏招与好棋共用同一张提示卡（位置/尺寸/时长一致，仅配色与图标不同）
                 if (gap > 150) {
                   const verdict = gap > 300 ? '大漏招' : '漏招';
-                  setMoveCheckMsg(`⚠️ ${verdict}！与最佳相差 ${gap} 分`);
-                  window.setTimeout(() => setMoveCheckMsg(null), 2500);
+                  setMoveCheckMsg({ kind: 'blunder', text: `⚠️ ${verdict}！与最佳相差 ${gap} 分` });
+                  window.setTimeout(() => setMoveCheckMsg(null), 1600);
+                } else if (computerSideRef.current && gap <= 10) {
+                  // 好棋激励（仅人机对战，阈值取紧以免每步都弹）：
+                  // gap ≤ 10 分 → 好棋；gap ≤ -30 分（比引擎首选的评估更优）→ 妙手
+                  const tier: 'good' | 'great' = gap <= -30 ? 'great' : 'good';
+                  setGoodMoves((prev) => ({ ...prev, [moveIndex]: tier }));
+                  setMoveCheckMsg({
+                    kind: tier,
+                    text:
+                      tier === 'great'
+                        ? `✨ 妙手！比引擎首选更优 ${-gap} 分`
+                        : `👍 好棋！与最佳仅差 ${gap} 分`,
+                  });
+                  window.setTimeout(() => setMoveCheckMsg(null), 1600);
                 }
               } catch {
                 /* 分析失败静默，不打断对局 */
@@ -537,6 +589,7 @@ export default function App() {
   const clearState = () => {
     setLastMove(null);
     setBestMoveArrow(null);
+    setGoodMoves({});
     prevFenRef.current = '';
     if (effectTimerRef.current !== null) window.clearTimeout(effectTimerRef.current);
     if (moveCheckTimerRef.current !== null) window.clearTimeout(moveCheckTimerRef.current);
@@ -650,6 +703,29 @@ export default function App() {
     demoStepTimerRef.current = window.setTimeout(() => stepDemo(0), 300);
   };
 
+  // 棋谱库「导出到对局」：把当前局面与整份棋谱走法交回主对局——走棋记录保留整个棋谱
+  // （可回看、可用 ▶ 一步步走完后续手），棋盘停在被复盘的那一步；
+  // 同时关闭人机对战，否则电脑会在导出后立刻接手，没法先编辑局面或自己走后续手。
+  const handleXqpExport = (b: ExportBook) => {
+    // 存浏览器本地（与 xqp.json 同构，最新一份），不写回仓库文件
+    try {
+      localStorage.setItem(XQP_EXPORT_KEY, JSON.stringify({ ...b, savedAt: Date.now() }));
+    } catch {
+      // localStorage 不可用时忽略
+    }
+    stopAutoPlay();
+    stopDemo();
+    sandboxSnapshotRef.current = null;
+    setSandbox(false);
+    clearState();
+    game.loadMoves(b.moves, b.fen, b.index);
+    setComputerSide(null);
+    setFlipped(false);
+    setComputerRetry(0);
+    setComputerError(null);
+    setXqpOpen(false);
+  };
+
   // 沙盘上一步/下一步：带滑动动画（按被回退/前进的走法触发反向/正向动画）；
   // 动画进行中忽略新的点击，等位移结束再响应
   const stepSandbox = (dir: 1 | -1) => {
@@ -741,9 +817,9 @@ export default function App() {
           <BoardEffect key={boardEffect.key} kind={boardEffect.kind} />
         )}
         {moveCheckMsg && (
-          <div className="move-check-toast">{moveCheckMsg}</div>
+          <div className={`move-check-toast ${moveCheckMsg.kind}`}>{moveCheckMsg.text}</div>
         )}
-        {showGameOver && game.gameOver && (
+        {showGameOver && game.gameOver && !sandbox && (
           <div
             className={`game-over-banner ${
               game.gameOver.includes('红方胜')
@@ -991,6 +1067,7 @@ export default function App() {
       stepByTurn={!!computerSide}
       humanIsRed={computerSide !== 'w'}
       disabled={!!demoMoves || sandbox}
+      goodMoves={goodMoves}
     />
   );
 
@@ -1045,7 +1122,11 @@ export default function App() {
 
       <main className={`app-main${isMobile ? ' mobile' : ''}`}>
         {xqpOpen ? (
-          <XqpView onClose={() => setXqpOpen(false)} theme={boardTheme} />
+          <XqpView
+            onClose={() => setXqpOpen(false)}
+            theme={boardTheme}
+            onExportToGame={handleXqpExport}
+          />
         ) : editing ? (
           <BoardEditor
             onConfirm={handleEditorConfirm}

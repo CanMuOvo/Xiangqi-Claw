@@ -66,7 +66,9 @@ function Board({
   // 避免首帧（useLayoutEffect 运行前）派生动画不生效导致棋子瞬移
   const lastMoveRef = useRef(lastMove);
   if (lastMove !== lastMoveRef.current) {
-    animFinishedRef.current = false;
+    // 新走棋才需要交棒给动画（隐藏落点子棋）；lastMove 变 null（新局/清局）
+    // 直接置「已完成」，队列清空由下方 layout effect 负责
+    animFinishedRef.current = lastMove === null;
     lastMoveRef.current = lastMove;
   }
   const onAnimDoneRef = useRef(onAnimDone);
@@ -79,6 +81,9 @@ function Board({
     const next = animQueueRef.current.shift();
     if (!next) return;
     playingRef.current = true;
+    // 新动画开始：重置"动画完成"标志。上一个动画完成时会置 true，
+    // 若不重置，排队中的新动画播放期间落点不会隐藏 → 落点棋子闪现后插值再滑来
+    animFinishedRef.current = false;
     const { piece, from, to } = next;
     const start = performance.now();
     // 按走子距离定速（每格约 140ms，视觉速度恒定，避免长短距离看起来快慢不一）
@@ -112,7 +117,9 @@ function Board({
         animFinishedRef.current = true; // 动画完成
         playingRef.current = false;
         playNext();
-        if (animQueueRef.current.length === 0) {
+        // 必须「队列已空 且 没有动画在播」才算全部播完：playNext 刚启动下一手时
+        // 队列已空但动画仍在播，此时回调会让上层提前解锁（误以为位移结束 → 落点错位）
+        if (!playingRef.current && animQueueRef.current.length === 0) {
           onAnimDoneRef.current?.();
         }
       }
@@ -125,7 +132,14 @@ function Board({
 
   // 动画在绘制前同步启动（useLayoutEffect）：避免"局面已更新但 anim 未设置"的闪现帧
   useLayoutEffect(() => {
-    if (!lastMove) return;
+    // 新局/清局：丢弃排队中的旧走子动画，避免旧队列在新局面下回放（棋子乱飞）
+    if (!lastMove) {
+      animQueueRef.current = [];
+      playingRef.current = false;
+      animFinishedRef.current = true;
+      setAnim(null);
+      return;
+    }
     const { from, to } = lastMove;
     const piece = boardRef.current[to.row][to.col];
     if (!piece) return;
@@ -366,12 +380,13 @@ function Board({
       for (let c = 0; c < 9; c++) {
         const piece = board[r][c];
         if (!piece) continue;
-        // 走棋动画期间：当前动画的落点静止棋子不渲染（避免"静止棋子+插值棋子"重叠闪现）。
-        // 用 effectiveAnim.to（实际播放中的动画落点）而非 lastMove.to——
-        // 动画排队时（逐手回放/连续走子）lastMove 已指向新一步，旧动画落点会提前显形
+        // 走棋动画期间隐藏静态棋子，避免与插值棋子重叠：
+        // 1) 排队中新走法的落点（lastMove.to）——逐手回放时 board 已切到新局面，
+        //    新落点棋子若不藏会在旧动画播放期间提前显形
+        // 2) 当前动画的终点（effectiveAnim.to）——防"静态+插值"重叠
         if (!animFinishedRef.current) {
-          const hideTo = effectiveAnim?.to ?? lastMove?.to;
-          if (hideTo && hideTo.row === r && hideTo.col === c) continue;
+          if (lastMove && lastMove.to.row === r && lastMove.to.col === c) continue;
+          if (effectiveAnim && effectiveAnim.to.row === r && effectiveAnim.to.col === c) continue;
         }
 
         const x = toX(displayCol(c));

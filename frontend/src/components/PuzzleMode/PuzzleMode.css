@@ -16,8 +16,7 @@
 
 .puzzle-controls h2 {
   margin: 0;
-  font-size: 20px;
-  color: #e0e0e0;
+  font-size: calc(20px * var(--fs-scale));  color: #e0e0e0;
   flex: 1;
 }
 
@@ -32,8 +31,7 @@
   border: 1px solid #3a3a5e;
   border-radius: 6px;
   color: #94a3b8;
-  font-size: 13px;
-  cursor: pointer;
+  font-size: calc(13px * var(--fs-scale));  cursor: pointer;
   transition: all 0.15s;
 }
 
@@ -51,8 +49,7 @@
   color: white;
   border: none;
   border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: calc(14px * var(--fs-scale));  font-weight: 600;
   cursor: pointer;
   transition: opacity 0.2s;
 }
@@ -73,8 +70,7 @@
 .diff-badge {
   padding: 2px 10px;
   border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: calc(12px * var(--fs-scale));  font-weight: 600;
 }
 
 .diff-badge.easy { background: #22c55e33; color: #22c55e; }
@@ -83,7 +79,7 @@
 
 .puzzle-desc {
   color: #cbd5e1;
-  font-size: 14px;
+  font-size: calc(14px * var(--fs-scale));
 }
 
 .puzzle-result {
@@ -92,8 +88,7 @@
   gap: 12px;
   padding: 12px 20px;
   border-radius: 8px;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: calc(16px * var(--fs-scale));  font-weight: 600;
   width: 100%;
   justify-content: center;
 }
@@ -112,8 +107,7 @@
   padding: 6px 16px;
   border: none;
   border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
+  font-size: calc(14px * var(--fs-scale));  cursor: pointer;
   font-weight: 600;
 }
 
@@ -129,7 +123,6 @@
 
 .puzzle-hint {
   color: #64748b;
-  font-size: 14px;
-  padding: 20px;
+  font-size: calc(14px * var(--fs-scale));  padding: 20px;
   text-align: center;
 }

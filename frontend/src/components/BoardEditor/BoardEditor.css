@@ -1,7 +1,13 @@
 .board-editor {
   display: grid;
-  grid-template-columns: minmax(360px, 620px) minmax(280px, 380px);
-  gap: 22px;
+  /* 棋盘列上限跟棋盘自身的视口高上限联动（Board.css: calc((100vh - 180px) * 0.9)）：
+     否则大屏下列比棋盘宽，衬台底色会整片拉满、右侧空出一圈；
+     侧栏宽度跟随字号倍率，多出的宽度对称留白 */
+  grid-template-columns:
+    minmax(360px, calc((100vh - 180px) * 0.9))
+    minmax(280px, calc(380px * var(--fs-scale)));
+  justify-content: center;
+  gap: clamp(18px, 0.5vw + 14px, 30px);
   align-items: start;
 }
 
@@ -45,8 +51,7 @@
 
 .editor-sidebar h3 {
   margin: 0;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: calc(16px * var(--fs-scale));  font-weight: 600;
   color: var(--gold-2);
   letter-spacing: 0.08em;
   position: relative;
@@ -66,8 +71,7 @@
 
 .editor-hint {
   margin: 0;
-  font-size: 13px;
-  color: var(--ink-2);
+  font-size: calc(13px * var(--fs-scale));  color: var(--ink-2);
   line-height: 1.4;
 }
 
@@ -87,8 +91,7 @@
 }
 
 .picker-label {
-  font-size: 13px;
-  color: var(--ink-2);
+  font-size: calc(13px * var(--fs-scale));  color: var(--ink-2);
   font-weight: 500;
 }
 
@@ -103,8 +106,7 @@
   height: 42px;
   border-radius: 50%;
   border: 2px solid transparent;
-  font-size: 19px;
-  font-weight: bold;
+  font-size: calc(19px * var(--fs-scale));  font-weight: bold;
   font-family: var(--serif);
   cursor: pointer;
   transition: all 0.15s;
@@ -125,8 +127,7 @@
 }
 
 .picker-btn.erase {
-  font-size: 13px;
-  font-family: inherit;
+  font-size: calc(13px * var(--fs-scale));  font-family: inherit;
   color: var(--ink-2);
   border-radius: 9px;
   background: var(--bg-2);
@@ -151,7 +152,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: calc(14px * var(--fs-scale));
 }
 
 .turn-btn {
@@ -160,8 +161,7 @@
   border-radius: 7px;
   background: rgba(255, 255, 255, 0.04);
   color: var(--ink-2);
-  font-size: 13px;
-  cursor: pointer;
+  font-size: calc(13px * var(--fs-scale));  cursor: pointer;
   transition: all 0.15s;
 }
 
@@ -183,8 +183,7 @@
 }
 
 .fen-label {
-  font-size: 12px;
-  color: var(--ink-3);
+  font-size: calc(12px * var(--fs-scale));  color: var(--ink-3);
 }
 
 .fen-display {
@@ -194,8 +193,7 @@
   border: 1px solid var(--line);
   border-radius: 7px;
   color: var(--ink-2);
-  font-size: 11px;
-  font-family: monospace;
+  font-size: calc(11px * var(--fs-scale));  font-family: monospace;
   outline: none;
   box-sizing: border-box;
   cursor: pointer;
@@ -213,8 +211,7 @@
   border: 1px solid var(--line);
   border-radius: 7px;
   color: var(--ink);
-  font-size: 12px;
-  font-family: monospace;
+  font-size: calc(12px * var(--fs-scale));  font-family: monospace;
   outline: none;
 }
 
@@ -228,8 +225,7 @@
   color: #171207;
   border: none;
   border-radius: 7px;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: calc(12px * var(--fs-scale));  font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -241,8 +237,7 @@
 
 .fen-error {
   margin: 0;
-  font-size: 12px;
-  color: #f3a6a2;
+  font-size: calc(12px * var(--fs-scale));  color: #f3a6a2;
 }
 
 .editor-actions {
@@ -255,8 +250,7 @@
   padding: 10px;
   border: none;
   border-radius: 9px;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: calc(14px * var(--fs-scale));  font-weight: 600;
   cursor: pointer;
   transition: filter 0.15s;
 }
@@ -290,6 +284,5 @@
 
   .editor-btn {
     padding: 13px;
-    font-size: 15px;
-  }
+    font-size: calc(15px * var(--fs-scale));  }
 }

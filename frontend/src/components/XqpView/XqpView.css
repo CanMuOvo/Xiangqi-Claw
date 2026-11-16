@@ -18,8 +18,7 @@
   border-radius: 9px;
   background: rgba(255, 255, 255, 0.04);
   color: var(--ink-2);
-  font-size: 13px;
-  cursor: pointer;
+  font-size: calc(13px * var(--fs-scale));  cursor: pointer;
   transition: all 0.15s;
 }
 
@@ -31,8 +30,7 @@
 
 .xqp-title {
   margin: 0;
-  font-size: 18px;
-  font-weight: 700;
+  font-size: calc(18px * var(--fs-scale));  font-weight: 700;
   font-family: var(--serif);
   color: var(--gold-2);
   letter-spacing: 0.1em;
@@ -43,8 +41,7 @@
 }
 
 .xqp-current {
-  font-size: 13px;
-  color: var(--ink-2);
+  font-size: calc(13px * var(--fs-scale));  color: var(--ink-2);
   letter-spacing: 0.04em;
   font-family: var(--sans);
   white-space: nowrap;
@@ -58,11 +55,16 @@
   flex: 1;
 }
 
-/* 主布局：棋盘 + 侧栏 */
+/* 主布局：棋盘 + 侧栏。棋盘列上限跟棋盘自身的视口高上限联动
+   （Board.css 里同样是 calc((100vh - 180px) * 0.9)），否则大屏上列比棋盘宽、
+   衬台里会空出一圈；侧栏宽度跟随字号倍率，多出的宽度对称留白 */
 .xqp-layout {
   display: grid;
-  grid-template-columns: minmax(380px, 620px) minmax(300px, 400px);
-  gap: 22px;
+  grid-template-columns:
+    minmax(380px, calc((100vh - 180px) * 0.9))
+    minmax(300px, calc(400px * var(--fs-scale)));
+  justify-content: center;
+  gap: clamp(18px, 0.5vw + 14px, 30px);
   align-items: start;
 }
 
@@ -100,8 +102,7 @@
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.05);
   color: var(--ink);
-  font-size: 13px;
-  cursor: pointer;
+  font-size: calc(13px * var(--fs-scale));  cursor: pointer;
   white-space: nowrap;
   transition: all 0.15s;
 }
@@ -137,8 +138,7 @@
 }
 
 .xqp-progress-text {
-  font-size: 12px;
-  color: var(--ink-3);
+  font-size: calc(12px * var(--fs-scale));  color: var(--ink-3);
   white-space: nowrap;
 }
 
@@ -161,8 +161,7 @@
   border-radius: 7px;
   background: transparent;
   color: var(--ink-2);
-  font-size: 12px;
-  cursor: pointer;
+  font-size: calc(12px * var(--fs-scale));  cursor: pointer;
   transition: all 0.15s;
 }
 
@@ -178,8 +177,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--ink);
-  font-size: 13px;
-  outline: none;
+  font-size: calc(13px * var(--fs-scale));  outline: none;
 }
 
 .xqp-search:focus {
@@ -203,8 +201,7 @@
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.03);
   color: var(--ink);
-  font-size: 14px;
-  cursor: pointer;
+  font-size: calc(14px * var(--fs-scale));  cursor: pointer;
   text-align: left;
   transition: all 0.15s;
 }
@@ -223,8 +220,7 @@
 }
 
 .xqp-cat-count {
-  font-size: 12px;
-  color: var(--ink-3);
+  font-size: calc(12px * var(--fs-scale));  color: var(--ink-3);
   white-space: nowrap;
 }
 
@@ -238,8 +234,7 @@
   border-radius: 8px;
   background: transparent;
   color: var(--ink-2);
-  font-size: 13px;
-  cursor: pointer;
+  font-size: calc(13px * var(--fs-scale));  cursor: pointer;
   text-align: left;
   transition: all 0.15s;
 }
@@ -263,8 +258,7 @@
 }
 
 .xqp-book-result {
-  font-size: 11px;
-  white-space: nowrap;
+  font-size: calc(11px * var(--fs-scale));  white-space: nowrap;
 }
 
 .xqp-book-result.r-red { color: #e8837f; }
@@ -274,15 +268,15 @@
 .xqp-book-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  /* 标题+胜负靠左相邻，导出按钮由 margin-left:auto 顶到右侧 */
+  justify-content: flex-start;
   gap: 8px;
   padding: 10px 12px;
   border: 1px solid rgba(130, 168, 220, 0.35);
   border-radius: 9px;
   background: rgba(130, 168, 220, 0.06);
   font-family: var(--serif);
-  font-size: 13px;
-  font-weight: 700;
+  font-size: calc(13px * var(--fs-scale));  font-weight: 700;
   color: #b8cdf0;
 }
 
@@ -290,6 +284,26 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 导出到主对局：金色描边区分于灰色回退按钮 */
+.xqp-export {
+  margin-left: auto;
+  padding: 5px 10px;
+  border: 1px solid rgba(200, 164, 92, 0.45);
+  border-radius: 7px;
+  background: rgba(200, 164, 92, 0.1);
+  color: var(--gold-2);
+  font-family: inherit;
+  font-size: calc(12px * var(--fs-scale));  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.xqp-export:hover {
+  background: rgba(200, 164, 92, 0.2);
+  border-color: var(--gold);
 }
 
 /* 复盘走棋记录容器 */
@@ -303,15 +317,13 @@
 
 .xqp-empty {
   margin: 12px 0;
-  font-size: 13px;
-  color: var(--ink-3);
+  font-size: calc(13px * var(--fs-scale));  color: var(--ink-3);
   text-align: center;
 }
 
 @media (max-width: 700px) {
   .xqp-title {
-    font-size: 15px;
-  }
+    font-size: calc(15px * var(--fs-scale));  }
 
   .xqp-current {
     max-width: 45%;
